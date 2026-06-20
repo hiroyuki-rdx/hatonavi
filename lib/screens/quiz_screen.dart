@@ -6,7 +6,7 @@ import '../widgets/hatoppy_widget.dart';
 enum _Phase { idle, scanning, quiz, result }
 
 /// 企画書「② はとっぴーの地産地消おつかいクイズ」を再現する画面。
-/// スキャン演出 → レジゴーへのカゴ追加演出 → はとっぴーのクイズ → 正誤フィードバック
+/// スキャン演出 → ピピットセルフへのカゴ追加演出 → はとっぴーのクイズ → 正誤フィードバック
 /// の順に進む。正解した場合のみ Navigator.pop(true) でバッジ獲得を呼び出し元に伝える。
 class QuizScreen extends StatefulWidget {
   final ShoppingItem item;
@@ -111,7 +111,7 @@ class _ScanningView extends StatelessWidget {
           CircularProgressIndicator(color: AppColors.primaryGreen),
           SizedBox(height: 18),
           Text(
-            'スキャン中…\nレジゴーのカゴに追加しています',
+            'スキャン中…\nピピットセルフのカゴに追加しています',
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold, height: 1.5),
           ),
@@ -139,7 +139,7 @@ class _QuizView extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: const Text(
-            '✅ レジゴーのカゴに追加されました！',
+            '✅ ピピットセルフのカゴに追加されました！',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),

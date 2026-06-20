@@ -96,42 +96,42 @@ class _CompassScreenState extends State<CompassScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: HatoppyTalk(
-                message: 'つぎは「${widget.targetAreaName}」へ\nむかおう！',
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: _CompassDial(
-                  heading: _heading,
-                  hasHeading: _hasHeading,
-                  needsTap: _needsTap,
-                  onEnable: _enableByTap,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: widget.onArrived,
-                  child: const Text('ここに とうちゃく！'),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const _SlowWalkBar(),
-          ],
+    // NavigationScreen の Scaffold 内に埋め込んで使うため、ここでは
+    // Scaffold を持たず Column のみを返す（Scaffold 二重ネスト回避）。
+    // 到着ボタンと警告バーが常に画面内に収まるレイアウトにしている。
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: HatoppyTalk(
+            message: 'つぎは「${widget.targetAreaName}」へ\nむかおう！',
+          ),
         ),
-      ),
+        Expanded(
+          child: Center(
+            child: SingleChildScrollView(
+              child: _CompassDial(
+                heading: _heading,
+                hasHeading: _hasHeading,
+                needsTap: _needsTap,
+                onEnable: _enableByTap,
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: widget.onArrived,
+              child: const Text('ここに とうちゃく！'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const _SlowWalkBar(),
+      ],
     );
   }
 }
