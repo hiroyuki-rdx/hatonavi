@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
 import 'navigation_screen.dart';
+import 'safety_pledge_screen.dart';
 
 class ShoppingListScreen extends StatefulWidget {
   const ShoppingListScreen({super.key});
@@ -44,9 +45,19 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     final selectedItems =
         sampleItems.where((item) => _selectedIds.contains(item.id)).toList();
 
+    // ルート計算後はいきなりナビへ進まず、まず安全のお約束画面を挟む。
+    // 「やくそくした！スタート！」を押したら NavigationScreen へ置き換え遷移する。
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => NavigationScreen(items: selectedItems),
+        builder: (pledgeContext) => SafetyPledgeScreen(
+          onStart: () {
+            Navigator.of(pledgeContext).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => NavigationScreen(items: selectedItems),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

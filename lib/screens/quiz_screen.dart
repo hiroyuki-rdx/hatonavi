@@ -18,7 +18,6 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen> {
   _Phase _phase = _Phase.idle;
-  int? _selectedIndex;
   bool _isCorrect = false;
 
   Future<void> _startScan() async {
@@ -31,7 +30,6 @@ class _QuizScreenState extends State<QuizScreen> {
   void _selectChoice(int index) {
     if (_phase != _Phase.quiz) return;
     setState(() {
-      _selectedIndex = index;
       _isCorrect = index == widget.item.correctIndex;
       _phase = _Phase.result;
     });

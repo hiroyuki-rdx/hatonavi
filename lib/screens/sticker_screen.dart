@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../services/point_service.dart';
 import 'home_screen.dart';
+import 'point_screen.dart';
 
 /// 企画書「③ リアル店舗連動『おてつだい達成シール』」を再現する完了画面。
 /// レジゴー決済の演出 → シール引換券の表示 → 獲得バッジ（ご当地はとっぴー図鑑）の確認、
@@ -9,10 +11,16 @@ import 'home_screen.dart';
 class StickerScreen extends StatefulWidget {
   final int totalItems;
   final List<ShoppingItem> collected;
+
+  /// 今回のおつかいで獲得したポイント（＝正解数 = collected.length）。
+  /// ポイント画面へ引き継ぐとともに、initState で累計に加算保存する。
+  final int earnedPoints;
+
   const StickerScreen({
     super.key,
     required this.totalItems,
     required this.collected,
+    required this.earnedPoints,
   });
 
   @override
@@ -25,15 +33,28 @@ class _StickerScreenState extends State<StickerScreen> {
   @override
   void initState() {
     super.initState();
+    // 今回獲得ポイントを累計に一度だけ加算保存する。
+    PointService.add(widget.earnedPoints);
     Future.delayed(const Duration(milliseconds: 1300), () {
       if (mounted) setState(() => _processing = false);
     });
   }
 
-  void _restart() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-      (route) => false,
+  /// ポイント画面へ進む。ポイント画面の「ホームにもどる」で
+  /// ホームまで一気に戻す（履歴をすべて破棄）。
+  void _showPoints() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PointScreen(
+          earnedPoints: widget.earnedPoints,
+          onBackToHome: () {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              (route) => false,
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -158,11 +179,11 @@ class _StickerScreenState extends State<StickerScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: _restart,
+              onPressed: _showPoints,
               style: OutlinedButton.styleFrom(
                 backgroundColor: Colors.white,
               ),
-              child: const Text('さいしょからもういちど'),
+              child: const Text('ポイントをみる'),
             ),
           ),
           const SizedBox(height: 12),

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
-import '../widgets/hatoppy_widget.dart';
+import 'compass_screen.dart';
 import 'quiz_screen.dart';
 import 'sticker_screen.dart';
 
 /// 企画書の「① AIルートナビシステム」を再現する画面。
 /// ・全ルートは見せず、次の棚エリアだけをミッション形式で1つずつ提示
-/// ・移動中は加速度センサーの代わりにタイマーで「歩きスマホ防止ロック」を演出
+/// ・移動中は A作成の [CompassScreen]（方位磁針＋目的地表示＋到着ボタン）で案内する
 /// ・2件目到達時に「危険箇所ポップアップ」のデモも表示
 class NavigationScreen extends StatefulWidget {
   final List<ShoppingItem> items;
@@ -19,23 +19,17 @@ class NavigationScreen extends StatefulWidget {
 
 class _NavigationScreenState extends State<NavigationScreen> {
   int _index = 0;
-  bool _locked = true;
   bool _hazardShown = false;
   final List<ShoppingItem> _collected = [];
 
   @override
   void initState() {
     super.initState();
-    _revealCurrentMission();
+    _maybeShowHazardForCurrentMission();
   }
 
-  /// 「歩きスマホ防止ロック」→「次のミッション提示」を演出する。
-  Future<void> _revealCurrentMission() async {
-    setState(() => _locked = true);
-    await Future.delayed(const Duration(milliseconds: 1700));
-    if (!mounted) return;
-    setState(() => _locked = false);
-
+  /// 2件目（_index == 1）のミッションに入ったとき、一度だけ危険箇所アラートを出す。
+  void _maybeShowHazardForCurrentMission() {
     if (_index == 1 && !_hazardShown) {
       _hazardShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _showHazardAlert());
@@ -69,6 +63,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
     );
   }
 
+  /// CompassScreen の「ここに とうちゃく！」が押されたら呼ばれる。
+  /// クイズへ進み、正解ならバッジを集める。最後ならシール画面へ遷移する。
   Future<void> _onArrived() async {
     final currentItem = widget.items[_index];
 
@@ -88,12 +84,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
           builder: (_) => StickerScreen(
             totalItems: widget.items.length,
             collected: _collected,
+            // 獲得ポイントは正解数（集めたバッジ数）とする。
+            earnedPoints: _collected.length,
           ),
         ),
       );
     } else {
       setState(() => _index++);
-      await _revealCurrentMission();
+      _maybeShowHazardForCurrentMission();
     }
   }
 
@@ -133,119 +131,13 @@ class _NavigationScreenState extends State<NavigationScreen> {
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 350),
-              child: _locked
-                  ? _WalkLockView(key: const ValueKey('locked'))
-                  : _MissionView(
-                      key: ValueKey('mission-${current.id}'),
-                      item: current,
-                      onArrived: _onArrived,
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 「歩行中（移動中）」を検知して自動でかかる画面ロックの演出。
-/// 実機ではスマホの加速度センサーで歩行を検知する想定。
-class _WalkLockView extends StatelessWidget {
-  const _WalkLockView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('lock-bg'),
-      width: double.infinity,
-      color: AppColors.primaryGreenDark,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.phonelink_lock, color: Colors.white, size: 64),
-            const SizedBox(height: 16),
-            const Text(
-              '画面ロック中',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
+              // 各ミッションで CompassScreen を表示。到着ボタンで _onArrived。
+              // ミッションが変わるたびに key を変えてコンパスを作り直す。
+              child: CompassScreen(
+                key: ValueKey('compass-${current.id}'),
+                targetAreaName: current.area,
+                onArrived: _onArrived,
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '前を見て歩こう！',
-              style: TextStyle(color: Colors.white70, fontSize: 15),
-            ),
-            const SizedBox(height: 28),
-            const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 40),
-            const SizedBox(height: 8),
-            const Text(
-              'すすむ方向',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 次の棚エリアを1つだけ提示するミッションカード。
-class _MissionView extends StatelessWidget {
-  final ShoppingItem item;
-  final VoidCallback onArrived;
-  const _MissionView({super.key, required this.item, required this.onArrived});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          HatoppyTalk(message: '次は『${item.area}』へ\nむかえ！'),
-          const SizedBox(height: 28),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.accentOrange, width: 2),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(item.emoji, style: const TextStyle(fontSize: 72)),
-                  const SizedBox(height: 12),
-                  Text(
-                    item.area,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.primaryGreenDark,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '「${item.name}」をさがしてね',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textDark.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onArrived,
-              icon: const Icon(Icons.flag_rounded),
-              label: const Text('棚エリアに到着！'),
             ),
           ),
         ],
