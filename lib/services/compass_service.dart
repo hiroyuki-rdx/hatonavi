@@ -13,60 +13,78 @@ import 'dart:js_util' as js_util;
 ///
 /// ブラウザの DeviceOrientation イベントを購読し、
 /// 北を 0 度とした 0〜360 度の方位を [headingStream] で流す。
-/// iOS Safari では明示的な権限要求が必要なため [requestPermission] を用意する。
+///
+/// 端末ごとの違いを吸収する:
+/// - iOS Safari: `event.webkitCompassHeading`（北=0・時計回りの絶対方位）を使う。
+///   さらに利用には [requestPermission] をユーザー操作起点で呼ぶ必要がある。
+/// - Android Chrome 等: `deviceorientationabsolute` の `alpha`（反時計回り）を
+///   `360 - alpha` で北基準に変換する。
 class CompassService {
   /// 0〜360度（北=0）の方位を流すストリーム。
   ///
-  /// `onDeviceOrientationAbsolute`（絶対方位）を優先し、
-  /// 無ければ `onDeviceOrientation` にフォールバックして購読する。
-  /// イベントの `alpha`（0〜360）を `360 - alpha` で北基準に変換して流す。
-  /// `alpha` が null のイベントはスキップする。
-  /// センサー非対応・例外時はクラッシュさせず、北固定（0）を一度だけ流す。
-  Stream<double> get headingStream async* {
-    try {
-      // 絶対方位イベントが使えるか確認し、無ければ相対方位にフォールバック。
-      final bool hasAbsolute =
-          js_util.hasProperty(html.window, 'ondeviceorientationabsolute');
-      // `dart:html` の Window には絶対方位用の getter が無いため、
-      // イベント名を直接指定して型付きストリームを取得する。
-      final Stream<html.DeviceOrientationEvent> source = hasAbsolute
-          ? const html.EventStreamProvider<html.DeviceOrientationEvent>(
-              'deviceorientationabsolute',
-            ).forTarget(html.window)
-          : html.window.onDeviceOrientation;
+  /// 絶対方位イベント（`deviceorientationabsolute`）と通常の
+  /// `deviceorientation` の両方を購読し、最初に値が取れた方式で方位を流す。
+  /// iOS の `webkitCompassHeading` が取れればそれを最優先で使う。
+  Stream<double> get headingStream {
+    final controller = StreamController<double>.broadcast();
+    final List<StreamSubscription<html.Event>> subs = [];
 
-      await for (final html.DeviceOrientationEvent event in source) {
-        final double? alpha = event.alpha?.toDouble();
-        if (alpha == null) {
-          // 方位が取得できないイベントはスキップ。
-          continue;
+    void handle(html.Event event) {
+      try {
+        // iOS Safari: webkitCompassHeading は北=0・時計回りの絶対方位。
+        final dynamic webkit = js_util.getProperty(event, 'webkitCompassHeading');
+        if (webkit != null) {
+          double h = (webkit as num).toDouble() % 360;
+          if (h < 0) h += 360;
+          controller.add(h);
+          return;
         }
-        // alpha は反時計回りなので、北基準（時計回り）へ変換する。
-        double heading = 360 - alpha;
-        // 念のため 0〜360 の範囲に正規化する。
-        heading = heading % 360;
-        if (heading < 0) heading += 360;
-        yield heading;
+        // Android 等: alpha（反時計回り）を北基準（時計回り）へ変換。
+        final dynamic alpha = js_util.getProperty(event, 'alpha');
+        if (alpha != null) {
+          double h = (360 - (alpha as num).toDouble()) % 360;
+          if (h < 0) h += 360;
+          controller.add(h);
+        }
+      } catch (_) {
+        // 壊れたイベントは無視して次を待つ。
       }
-    } catch (_) {
-      // センサー非対応環境などで例外が出た場合は北固定で続行する。
-      yield 0;
     }
+
+    controller.onListen = () {
+      try {
+        // 絶対方位イベント（主に Android Chrome）。dart:html に専用getterが
+        // 無いためイベント名で購読する。
+        subs.add(html.window.on['deviceorientationabsolute'].listen(handle));
+        // iOS / その他: 通常の deviceorientation。
+        subs.add(html.window.onDeviceOrientation.listen(handle));
+      } catch (_) {
+        // センサー非対応環境では北固定（0）を一度だけ流す。
+        controller.add(0);
+      }
+    };
+    controller.onCancel = () {
+      for (final s in subs) {
+        s.cancel();
+      }
+      subs.clear();
+    };
+
+    return controller.stream;
   }
 
   /// 方位センサーの利用権限を要求する。許可されたら true を返す。
   ///
   /// iOS 13+ の Safari では `DeviceOrientationEvent.requestPermission()` を
-  /// ユーザー操作起点で呼ぶ必要がある。
+  /// **ユーザー操作（タップ）起点**で呼ぶ必要がある。initState 等から自動で
+  /// 呼んでも拒否されるため、必ずボタンのタップハンドラから呼ぶこと。
   /// このメソッドが存在しない環境（Android / PC）では権限不要なので true を返す。
-  /// 例外が出た場合も、続行できるよう true を返す。
   Future<bool> requestPermission() async {
     try {
-      // ブラウザ上の DeviceOrientationEvent コンストラクタ（関数オブジェクト）を取得。
       final dynamic orientationEvent =
           js_util.getProperty(html.window, 'DeviceOrientationEvent');
       if (orientationEvent == null) {
-        // そもそも DeviceOrientationEvent が無い環境。北固定で動かすため true。
+        // DeviceOrientationEvent 自体が無い環境。北固定で動かすため true。
         return true;
       }
 

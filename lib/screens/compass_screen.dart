@@ -36,35 +36,60 @@ class _CompassScreenState extends State<CompassScreen> {
   /// 方位角ストリームの購読。dispose で cancel する。
   StreamSubscription<double>? _subscription;
 
+  /// 一定時間センサー値が来ないときにタップ案内へ切り替えるためのタイマー。
+  Timer? _waitTimer;
+
   /// 現在の方位角（0〜360度）。センサー値が来るまでは北固定（0度）。
   double _heading = 0;
 
   /// センサー値を1度でも受け取れたか。受け取れるまでは読み込み中表示にする。
   bool _hasHeading = false;
 
+  /// 値が来ないので「コンパスをつかう」タップ案内を出す状態か。
+  /// 主に iOS（タップ起点でしか権限を出せない）や、センサーが無い端末向け。
+  bool _needsTap = false;
+
   @override
   void initState() {
     super.initState();
-    _startCompass();
+    // Android 等は権限不要でそのまま購読開始できる。
+    // iOS は権限がタップ起点必須なので、来なければ後でボタンを出す。
+    _subscribe();
+    _waitTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && !_hasHeading) setState(() => _needsTap = true);
+    });
   }
 
-  /// 権限を要求し、許可されたら方位角ストリームの購読を始める。
-  /// 未許可・センサー無しの場合は購読せず、針は北固定のままにする。
-  Future<void> _startCompass() async {
-    final granted = await _compassService.requestPermission();
-    if (!granted || !mounted) return;
-
+  /// 方位角ストリームの購読を（再）開始する。
+  void _subscribe() {
+    _subscription?.cancel();
     _subscription = _compassService.headingStream.listen((heading) {
       if (!mounted) return;
       setState(() {
         _heading = heading;
         _hasHeading = true;
+        _needsTap = false;
       });
     });
   }
 
+  /// ユーザーのタップ起点で権限を要求し、購読をやり直す。
+  /// iOS Safari はこの「タップ起点」でしかセンサー許可を出せない。
+  Future<void> _enableByTap() async {
+    await _compassService.requestPermission();
+    if (!mounted) return;
+    _subscribe();
+    // しばらく待っても来なければ、もう一度案内を出す。
+    _waitTimer?.cancel();
+    _waitTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && !_hasHeading) setState(() => _needsTap = true);
+    });
+    setState(() => _needsTap = false);
+  }
+
   @override
   void dispose() {
+    _waitTimer?.cancel();
     _subscription?.cancel();
     super.dispose();
   }
@@ -87,6 +112,8 @@ class _CompassScreenState extends State<CompassScreen> {
                 child: _CompassDial(
                   heading: _heading,
                   hasHeading: _hasHeading,
+                  needsTap: _needsTap,
+                  onEnable: _enableByTap,
                 ),
               ),
             ),
@@ -118,7 +145,18 @@ class _CompassDial extends StatelessWidget {
   /// センサー値を受け取れているか。
   final bool hasHeading;
 
-  const _CompassDial({required this.heading, required this.hasHeading});
+  /// タップで権限を出す案内を表示する状態か。
+  final bool needsTap;
+
+  /// 「コンパスをつかう」タップ時のコールバック（ユーザー操作起点の権限要求）。
+  final VoidCallback onEnable;
+
+  const _CompassDial({
+    required this.heading,
+    required this.hasHeading,
+    required this.needsTap,
+    required this.onEnable,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +191,7 @@ class _CompassDial extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        if (!hasHeading)
+        if (!hasHeading && !needsTap)
           const Text(
             'コンパスをよみこみちゅう…',
             style: TextStyle(
@@ -162,6 +200,27 @@ class _CompassDial extends StatelessWidget {
               color: AppColors.textDark,
             ),
           ),
+        // 値が来ないとき（主に iOS の権限待ち）はタップで許可を出す。
+        if (needsTap) ...[
+          ElevatedButton.icon(
+            onPressed: onEnable,
+            icon: const Icon(Icons.explore),
+            label: const Text('コンパスをつかう'),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'うごかないときは「ここに とうちゃく！」を\nおして つぎへ すすめるよ',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.textDark.withOpacity(0.6),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
