@@ -280,7 +280,33 @@ class _QuizView extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
+        // おうちのひとと一緒に考える安全・知育の注意書き。
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.cardBeige,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Row(
+            children: [
+              Text('🧑‍🤝‍🧑', style: TextStyle(fontSize: 18)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'おうちのひとと いっしょに かくにんしよう！',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
         HatoppyTalk(message: question),
         const SizedBox(height: 22),
         Expanded(
