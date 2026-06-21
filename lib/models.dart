@@ -16,6 +16,7 @@ class ShoppingItem {
   final String explanation; // 正解発表時にはとっぴーが話す豆知識
   final String badgeName; // 図鑑に並ぶ限定バッジ名
   final String badgeEmoji; // バッジの絵文字
+  final String? janCode; // 本番でスキャン照合に使うJANコード（デモは未設定でも可）
 
   const ShoppingItem({
     required this.id,
@@ -28,6 +29,7 @@ class ShoppingItem {
     required this.explanation,
     required this.badgeName,
     required this.badgeEmoji,
+    this.janCode,
   });
 }
 

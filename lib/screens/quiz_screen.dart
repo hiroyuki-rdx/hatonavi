@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/hatoppy_widget.dart';
 import '../services/gemini_service.dart';
 
-enum _Phase { idle, scanning, quiz, result }
+enum _Phase { idle, camera, adding, quiz, result }
 
 /// 企画書「② はとっぴーの地産地消おつかいクイズ」を再現する画面。
 /// スキャン演出 → ピピットセルフへのカゴ追加演出 → はとっぴーのクイズ → 正誤フィードバック
@@ -30,12 +31,18 @@ class _QuizScreenState extends State<QuizScreen> {
   int get _correctIndex => _quiz?.correctIndex ?? widget.item.correctIndex;
   String get _explanation => _quiz?.explanation ?? widget.item.explanation;
 
-  Future<void> _startScan() async {
-    setState(() => _phase = _Phase.scanning);
-    // スキャン演出の裏で Gemini にクイズ生成を依頼（失敗時は固定クイズ）。
-    final genFuture = GeminiService.generateQuiz(widget.item);
-    await Future.delayed(const Duration(milliseconds: 1100));
-    final gen = await genFuture;
+  /// 「商品をスキャンする」→ 実カメラを起動する。
+  void _startScan() {
+    setState(() => _phase = _Phase.camera);
+  }
+
+  /// バーコードを読み取った（または読めずスキップした）ときの処理。
+  /// デモではどのバーコードでも先へ進む（本番は code を janCode と照合する想定）。
+  Future<void> _onScanned(String? code) async {
+    if (_phase != _Phase.camera) return;
+    setState(() => _phase = _Phase.adding); // 「カゴに追加」の演出
+    // 追加演出の裏で Gemini にクイズ生成を依頼（失敗時は固定クイズ）。
+    final gen = await GeminiService.generateQuiz(widget.item);
     if (!mounted) return;
     setState(() {
       _quiz = gen;
@@ -61,7 +68,11 @@ class _QuizScreenState extends State<QuizScreen> {
           padding: const EdgeInsets.all(20),
           child: switch (_phase) {
             _Phase.idle => _IdleView(item: item, onScan: _startScan),
-            _Phase.scanning => const _ScanningView(),
+            _Phase.camera => _ScannerView(
+                onScanned: _onScanned,
+                onSkip: () => _onScanned(null),
+              ),
+            _Phase.adding => const _ScanningView(),
             _Phase.quiz => _QuizView(
                 question: _question,
                 choices: _choices,
@@ -136,6 +147,101 @@ class _ScanningView extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold, height: 1.5),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 実カメラでバーコードを読み取るビュー（mobile_scanner v7）。
+/// ピピットセルフのスキャン体験そのもの。カメラが使えない端末では
+/// errorBuilder＋下のボタンで「スキップ」して先へ進める（デモが止まらない）。
+class _ScannerView extends StatefulWidget {
+  /// バーコードを読み取れたら、その文字列を渡して呼ばれる。
+  final ValueChanged<String?> onScanned;
+
+  /// カメラが使えない/読み取れないときに先へ進むためのスキップ。
+  final VoidCallback onSkip;
+
+  const _ScannerView({required this.onScanned, required this.onSkip});
+
+  @override
+  State<_ScannerView> createState() => _ScannerViewState();
+}
+
+class _ScannerViewState extends State<_ScannerView> {
+  /// 多重発火を防ぐフラグ（onDetect は連続で呼ばれるため）。
+  bool _handled = false;
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    final code = capture.barcodes.isNotEmpty
+        ? capture.barcodes.first.rawValue
+        : null;
+    if (code == null || code.isEmpty) return;
+    _handled = true;
+    widget.onScanned(code);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Text(
+          '商品のバーコードを\nわくの中にうつしてね',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: MobileScanner(
+              onDetect: _onDetect,
+              // カメラ権限なし・非対応端末では案内＋スキップを出す。
+              errorBuilder: (context, error) =>
+                  _ScanErrorView(onSkip: widget.onSkip),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        TextButton(
+          onPressed: widget.onSkip,
+          child: const Text('うまく よみとれない ときは ここをタップ'),
+        ),
+      ],
+    );
+  }
+}
+
+/// カメラが使えない/権限拒否のときの表示。タップで先へ進める。
+class _ScanErrorView extends StatelessWidget {
+  final VoidCallback onSkip;
+  const _ScanErrorView({required this.onSkip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.cardBeige,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.no_photography_rounded,
+              size: 48, color: AppColors.textDark),
+          const SizedBox(height: 12),
+          const Text(
+            'カメラが つかえないみたい。\n「つぎへ」で すすめるよ',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold, height: 1.5),
+          ),
+          const SizedBox(height: 14),
+          ElevatedButton(onPressed: onSkip, child: const Text('つぎへ すすむ')),
         ],
       ),
     );
