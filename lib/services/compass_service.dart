@@ -33,9 +33,9 @@ class CompassService {
 
   /// 0〜360度（北=0）の方位を流すストリーム。
   ///
-  /// 絶対方位イベント（`deviceorientationabsolute`）と通常の
-  /// `deviceorientation` の両方を購読し、最初に値が取れた方式で方位を流す。
-  /// iOS の `webkitCompassHeading` が取れればそれを最優先で使う。
+  /// 絶対方位（`deviceorientationabsolute`）を最優先で使い、取れない端末でのみ
+  /// `deviceorientation`（iOSは `webkitCompassHeading`、他は absolute==true の alpha）
+  /// を使う。**2方式を混ぜない**ことで象限ごとのズレを防ぐ。
   Stream<double> get headingStream {
     final controller = StreamController<double>.broadcast();
     final List<StreamSubscription<html.Event>> subs = [];
@@ -45,6 +45,7 @@ class CompassService {
     double sx = 0, sy = 0;
     bool hasSmooth = false;
     double lastEmitted = -999;
+    bool gotAbsolute = false; // 絶対方位を一度でも受け取ったら相対方位は使わない
 
     void emit(double rawDeg) {
       // 角度基準値（店舗の向き補正・手動キャリブレーション）を反映する。
@@ -70,9 +71,24 @@ class CompassService {
       }
     }
 
-    void handle(html.Event event) {
+    // 1つの方式だけを採用する（絶対と相対を混ぜると象限ごとにズレるため）。
+    void handle(html.Event event, {required bool absolute}) {
       try {
-        // iOS Safari: webkitCompassHeading は北=0・時計回りの絶対方位。
+        if (absolute) {
+          // deviceorientationabsolute：alpha は北基準（反時計回り）。
+          gotAbsolute = true;
+          final dynamic alpha = js_util.getProperty(event, 'alpha');
+          if (alpha != null) {
+            double h = (360 - (alpha as num).toDouble()) % 360;
+            if (h < 0) h += 360;
+            emit(h);
+          }
+          return;
+        }
+        // 以降は deviceorientation（相対の可能性あり）。
+        // 絶対方位が取れているなら相対は混ぜない。
+        if (gotAbsolute) return;
+        // iOS Safari：webkitCompassHeading は北=0・時計回りの絶対方位。
         final dynamic webkit = js_util.getProperty(event, 'webkitCompassHeading');
         if (webkit != null) {
           double h = (webkit as num).toDouble() % 360;
@@ -80,13 +96,15 @@ class CompassService {
           emit(h);
           return;
         }
-        // Android 等: alpha（反時計回り）を北基準（時計回り）へ変換。
+        // event.absolute == true のときだけ alpha を北基準として採用する。
+        final dynamic isAbs = js_util.getProperty(event, 'absolute');
         final dynamic alpha = js_util.getProperty(event, 'alpha');
-        if (alpha != null) {
+        if (isAbs == true && alpha != null) {
           double h = (360 - (alpha as num).toDouble()) % 360;
           if (h < 0) h += 360;
           emit(h);
         }
+        // それ以外（相対のみ）は方位として信用できないので捨てる。
       } catch (_) {
         // 壊れたイベントは無視して次を待つ。
       }
@@ -94,11 +112,12 @@ class CompassService {
 
     controller.onListen = () {
       try {
-        // 絶対方位イベント（主に Android Chrome）。dart:html に専用getterが
-        // 無いためイベント名で購読する。
-        subs.add(html.window.on['deviceorientationabsolute'].listen(handle));
-        // iOS / その他: 通常の deviceorientation。
-        subs.add(html.window.onDeviceOrientation.listen(handle));
+        // 絶対方位イベント（主に Android Chrome）。これが取れれば最優先。
+        subs.add(html.window.on['deviceorientationabsolute']
+            .listen((e) => handle(e, absolute: true)));
+        // iOS / その他：通常の deviceorientation（絶対が取れていなければ使う）。
+        subs.add(html.window.onDeviceOrientation
+            .listen((e) => handle(e, absolute: false)));
       } catch (_) {
         // センサー非対応環境では北固定（0）を一度だけ流す。
         controller.add(0);
