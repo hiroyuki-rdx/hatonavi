@@ -18,12 +18,17 @@ class CompassScreen extends StatefulWidget {
   /// 次に向かう棚エリア名（例：「お米売り場」）。
   final String targetAreaName;
 
+  /// 現在地→次の売り場への方位角（度, 北=0・時計回り。マップ上の北基準）。
+  /// null のときは方角が計算できない（座標欠落等）ので、従来通り heading をそのまま表示する。
+  final double? targetBearingDeg;
+
   /// 「ここに とうちゃく！」を押したときのコールバック。
   final VoidCallback onArrived;
 
   const CompassScreen({
     super.key,
     required this.targetAreaName,
+    this.targetBearingDeg,
     required this.onArrived,
   });
 
@@ -53,8 +58,11 @@ class _CompassScreenState extends State<CompassScreen> {
   /// 針の連続回転量（turns）。0〜1に折り返さず累積し、針を最短回りで回す。
   double _turns = 0;
 
-  /// 直前に受け取った方位角（最短回りの差分計算用）。
-  double _lastHeading = 0;
+  /// 直前に表示した「画面上の針角度(度)」（最短回りの差分計算用）。
+  double _lastNeedleDeg = 0;
+
+  /// 最後に受け取った生の方位角（度, 北=0）。ワンタップ較正の基準に使う。
+  double _heading = 0;
 
   /// 最初の方位を受け取ったか（初回は差分ではなく直接セット）。
   bool _hasFirstHeading = false;
@@ -78,27 +86,72 @@ class _CompassScreenState extends State<CompassScreen> {
     });
   }
 
+  /// 与えられた方位(heading)に対して、画面上で針が向くべき角度(度)を求める。
+  ///
+  /// ・targetBearingDeg != null（目的地が分かる）とき：
+  ///     needle = targetBearingDeg + storeNorthOffsetDeg - heading
+  ///   - targetBearingDeg はマップ北基準の「次の売り場の方向」。
+  ///   - storeNorthOffsetDeg はマップ北と実際の北とのズレ（較正値）。
+  ///     ⇒ targetBearingDeg + storeNorthOffsetDeg ＝ 実際の北基準での目的地方向。
+  ///   - そこから heading（＝端末の前方が向いている実方位）を引くと、
+  ///     「端末の前方(画面の上)から見て目的地が何度ずれているか」になる。
+  ///     これが画面上で針を回す角度なので、スマホをどの向きに持っても針が目的地を指す。
+  /// ・targetBearingDeg == null のとき：従来通り heading をそのまま針角度にする
+  ///   （＝北を指すコンパスとして振る舞う）。
+  double _needleDegFor(double heading) {
+    final target = widget.targetBearingDeg;
+    if (target == null) return heading;
+    return target + CompassService.storeNorthOffsetDeg - heading;
+  }
+
   /// 方位角ストリームの購読を（再）開始する。
   void _subscribe() {
     _subscription?.cancel();
     _subscription = _compassService.headingStream.listen((heading) {
       if (!mounted) return;
       setState(() {
-        // 0/360 をまたいでも針が最短回りで回るよう、差分を累積する。
-        if (!_hasFirstHeading) {
-          _hasFirstHeading = true;
-          _turns = heading / 360;
-        } else {
-          double delta = heading - _lastHeading;
-          while (delta > 180) delta -= 360;
-          while (delta < -180) delta += 360;
-          _turns += delta / 360;
-        }
-        _lastHeading = heading;
+        _heading = heading;
+        // 針が向くべき「画面上の角度」を求めてから turns に反映する。
+        // こうすることで「北を指す」も「目的地を指す」も同じ最短回りの仕組みで回せる。
+        final needleDeg = _needleDegFor(heading);
+        _applyNeedleDeg(needleDeg);
         _hasHeading = true;
         _needsTap = false;
       });
     });
+  }
+
+  /// 画面上の針角度(度)を、0/360 をまたいでも最短回りになるよう _turns に累積する。
+  /// setState の中から呼ぶこと（_turns / _lastNeedleDeg を更新するだけ）。
+  void _applyNeedleDeg(double needleDeg) {
+    if (!_hasFirstHeading) {
+      _hasFirstHeading = true;
+      _turns = needleDeg / 360;
+    } else {
+      double delta = needleDeg - _lastNeedleDeg;
+      while (delta > 180) delta -= 360;
+      while (delta < -180) delta += 360;
+      _turns += delta / 360;
+    }
+    _lastNeedleDeg = needleDeg;
+  }
+
+  /// ワンタップ較正：いま手に持っているスマホの正面（画面の上）が目的地方向だとみなし、
+  /// 店舗マップ北と実際の北とのズレ(storeNorthOffsetDeg)を求め直す。
+  ///
+  /// 針を真上（前方）に向けたい＝ needle ≡ 0 にしたいので、
+  ///   0 = targetBearingDeg + storeNorthOffsetDeg - heading
+  ///   ⇒ storeNorthOffsetDeg = heading - targetBearingDeg
+  /// を 0..360 に正規化して設定する。較正後は針を即座に真上へ向ける。
+  /// 較正値は static なので全ミッションで保持される。
+  void _calibrateToFront() {
+    final target = widget.targetBearingDeg;
+    if (target == null) return; // 目的地不明のときは較正しても意味がない
+    double offset = (_heading - target) % 360;
+    if (offset < 0) offset += 360;
+    CompassService.storeNorthOffsetDeg = offset;
+    // 較正直後、針が「いまの前方＝目的地方向」を指すよう再計算して反映する。
+    setState(() => _applyNeedleDeg(_needleDegFor(_heading)));
   }
 
   /// 走行検知ストリームの購読を（再）開始する。
@@ -165,6 +218,9 @@ class _CompassScreenState extends State<CompassScreen> {
                     hasHeading: _hasHeading,
                     needsTap: _needsTap,
                     onEnable: _enableByTap,
+                    // 目的地が分かっていて、かつ方位を受信できているときだけ較正可能。
+                    canCalibrate: widget.targetBearingDeg != null && _hasHeading,
+                    onCalibrate: _calibrateToFront,
                   ),
                 ),
               ),
@@ -244,11 +300,19 @@ class _CompassDial extends StatelessWidget {
   /// 「コンパスをつかう」タップ時のコールバック（ユーザー操作起点の権限要求）。
   final VoidCallback onEnable;
 
+  /// ワンタップ較正ボタンを出せる状態か（目的地が分かり、方位も受信できている）。
+  final bool canCalibrate;
+
+  /// 「むきを あわせる」タップ時のコールバック（前方＝目的地として較正）。
+  final VoidCallback onCalibrate;
+
   const _CompassDial({
     required this.turns,
     required this.hasHeading,
     required this.needsTap,
     required this.onEnable,
+    required this.canCalibrate,
+    required this.onCalibrate,
   });
 
   @override
@@ -293,6 +357,28 @@ class _CompassDial extends StatelessWidget {
               color: AppColors.textDark,
             ),
           ),
+        // ワンタップ較正：いまの前方を「目的地方向」に合わせる。
+        // 店舗マップと実際の北のズレを吸収し、押した瞬間に針が真上を指す。
+        if (canCalibrate) ...[
+          ElevatedButton.icon(
+            onPressed: onCalibrate,
+            icon: const Text('🧭', style: TextStyle(fontSize: 18)),
+            label: const Text('むきを あわせる'),
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'めじるしの ほうを むいて おしてね',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.textDark.withOpacity(0.6),
+              ),
+            ),
+          ),
+        ],
         // 値が来ないとき（主に iOS の権限待ち）はタップで許可を出す。
         if (needsTap) ...[
           ElevatedButton.icon(

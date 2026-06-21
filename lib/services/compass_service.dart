@@ -25,6 +25,13 @@ class CompassService {
   /// 例：店舗が真北から30度ずれていれば 30 を入れると棚方向の見え方が合う。
   static double baselineOffsetDeg = 0.0;
 
+  /// 店舗マップの「北」と、実際の地磁気の北とのズレ（度, 0〜360）。
+  /// 売り場座標(storeAreas)で計算した方位角は「マップ上の北」基準なので、
+  /// マップ全体が実際の北からどれだけ回転しているかをこの値で吸収する。
+  /// CompassScreen の「むきを あわせる」ワンタップ較正で更新され、
+  /// static なので全ミッションを通して保持される。
+  static double storeNorthOffsetDeg = 0.0;
+
   /// 円環スムージング係数（0〜1, 小さいほど滑らかで反応はゆっくり）。針のブレを抑える。
   static const double _smoothing = 0.2;
 

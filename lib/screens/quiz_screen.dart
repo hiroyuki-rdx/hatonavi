@@ -4,6 +4,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/hatoppy_widget.dart';
 import '../services/gemini_service.dart';
+import '../services/level_service.dart';
 
 enum _Phase { idle, camera, adding, quiz, result }
 
@@ -42,7 +43,11 @@ class _QuizScreenState extends State<QuizScreen> {
     if (_phase != _Phase.camera) return;
     setState(() => _phase = _Phase.adding); // 「カゴに追加」の演出
     // 追加演出の裏で Gemini にクイズ生成を依頼（失敗時は固定クイズ）。
-    final gen = await GeminiService.generateQuiz(widget.item);
+    // ホーム画面で選んだ難易度（メモリキャッシュ）を渡す。
+    final gen = await GeminiService.generateQuiz(
+      widget.item,
+      level: LevelService.currentId,
+    );
     if (!mounted) return;
     setState(() {
       _quiz = gen;
