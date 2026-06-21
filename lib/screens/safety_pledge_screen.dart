@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets/hatoppy_widget.dart';
+import '../services/speech_service.dart';
 
 /// 親が子どもにスマホを渡す前に表示する「お約束画面」。
 /// 企画書 4-◆安全性への徹底配慮 に対応し、
@@ -117,7 +118,11 @@ class _StartButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: onStart,
+        onPressed: () {
+          // iOS の音声を解放（ユーザー操作起点でないと後で鳴らないため）。
+          SpeechService.unlock();
+          onStart();
+        },
         style: ElevatedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 22),
           textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),

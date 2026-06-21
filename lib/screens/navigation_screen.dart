@@ -98,13 +98,41 @@ class _NavigationScreenState extends State<NavigationScreen> {
     }
   }
 
+  /// 【途中追加】リストに無い商品を見つけたときの導線（条件分岐：リスト品＝ミッション
+  /// 経由 / リスト外＝このボタン経由）。スキャン→ボーナスクイズ→正解なら +1（はっけん
+  /// バッジ）として収集に加える。ピピットセルフが元々スキャン式なので途中追加と相性が良い。
+  Future<void> _onScanExtra() async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const QuizScreen(item: bonusItem)),
+    );
+    if (!mounted) return;
+    if (ok == true) {
+      setState(() => _collected.add(bonusItem));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('リストにない商品も はっけん！＋1ポイント🛒'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final total = widget.items.length;
     final current = widget.items[_index];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('はとナビ AIルート案内')),
+      appBar: AppBar(
+        title: const Text('はとナビ AIルート案内'),
+        actions: [
+          IconButton(
+            tooltip: 'リストにない商品をスキャン',
+            icon: const Icon(Icons.add_shopping_cart_rounded),
+            onPressed: _onScanExtra,
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
