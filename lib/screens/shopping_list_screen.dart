@@ -25,10 +25,32 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     });
   }
 
+  /// 売り場マスタの pathIndex（入口→レジの一方向スイープ順）を返す。
+  /// マスタに無い areaId は最後尾扱い（9999）にして後戻りを防ぐ。
+  int _pathIndexOf(ShoppingItem item) => storeAreas[item.areaId]?.pathIndex ?? 9999;
+
+  /// ローカル基本順：選択商品を pathIndex 昇順で並べる。
+  /// 売り場の並び通りに進むので、必ず後戻りしない巡回順になる。
+  List<ShoppingItem> _localOrder(List<ShoppingItem> items) {
+    final sorted = [...items];
+    sorted.sort((a, b) => _pathIndexOf(a).compareTo(_pathIndexOf(b)));
+    return sorted;
+  }
+
+  /// 回遊性の指標：連続する2品で pathIndex が前より小さくなった（＝後戻りした）回数。
+  /// 小さいほど一筆書きに近く、回遊（行ったり来たり）が少ない。
+  int _backtrackCount(List<ShoppingItem> list) {
+    var count = 0;
+    for (var i = 1; i < list.length; i++) {
+      if (_pathIndexOf(list[i]) < _pathIndexOf(list[i - 1])) count++;
+    }
+    return count;
+  }
+
   Future<void> _onCalculateRoute() async {
     if (_selectedIds.isEmpty) return;
 
-    // ソフトバンクAIが最適ルートを計算している様子を演出するローディング。
+    // AIがまわる順番を考えている様子を演出するローディング。
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -41,23 +63,36 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     final selectedItems =
         sampleItems.where((item) => _selectedIds.contains(item.id)).toList();
 
-    // 演出を見せつつ、裏で Gemini に巡回順を尋ねる（最低1.2秒は表示）。
-    // 失敗・キー未設定時は null が返り、選択順のままフォールバックする。
-    final routeFuture = GeminiService.planRoute(selectedItems);
+    // ローカル基本順（売り場の並び通り＝必ず後戻りしない）を先に用意しておく。
+    final localOrder = _localOrder(selectedItems);
+
+    // 演出を見せつつ、裏で AI に巡回順（商品idの並び）を尋ねる（最低1.2秒は表示）。
+    // 失敗・不正・キー未設定時は null が返り、ローカル基本順にフォールバックする。
+    final aiFuture = GeminiService.suggestVisitOrder(selectedItems);
     await Future.delayed(const Duration(milliseconds: 1200));
-    final order = await routeFuture;
+    final aiIds = await aiFuture;
 
     if (!mounted) return;
     Navigator.of(context).pop(); // ローディングダイアログを閉じる
 
-    // Gemini が順番を返したらその順に並べ替える。
-    var orderedItems = selectedItems;
-    if (order != null) {
+    // 既定はローカル基本順。AI提案が回遊性で勝る（同点含む）ときだけ採用する。
+    var orderedItems = localOrder;
+    if (aiIds != null) {
+      // id→商品 のマップを作り、AIが返した順に並べ替える（null安全に欠落をスキップ）。
       final byId = {for (final it in selectedItems) it.id: it};
-      orderedItems = [for (final id in order) byId[id]!];
+      final aiOrder = [
+        for (final id in aiIds)
+          if (byId[id] != null) byId[id]!,
+      ];
+      // 回遊性ガード：AI順の後戻り回数がローカル順以下なら、AI順を採用。
+      // 全商品を漏れなく含む場合のみ採用（欠落・重複時はローカル順を守る）。
+      if (aiOrder.length == selectedItems.length &&
+          _backtrackCount(aiOrder) <= _backtrackCount(localOrder)) {
+        orderedItems = aiOrder;
+      }
     }
 
-    // ルート計算後はいきなりナビへ進まず、まず安全のお約束画面を挟む。
+    // 巡回順の確定後はいきなりナビへ進まず、まず安全のお約束画面を挟む。
     // 「やくそくした！スタート！」を押したら NavigationScreen へ置き換え遷移する。
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -86,7 +121,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
             child: const Text(
               '今日かいたいものをタップしてね。\n'
-              'AIがお店の中の最短ルートを考えるよ！',
+              'AIがまわる順番を考えるよ！',
               style: TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
             ),
           ),
@@ -117,7 +152,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                 child: Text(
                   _selectedIds.isEmpty
                       ? '1つ以上えらんでね'
-                      : 'AIルートを計算する（${_selectedIds.length}件）',
+                      : 'おつかいの順番をきめる（${_selectedIds.length}件）',
                 ),
               ),
             ),
@@ -215,7 +250,7 @@ class _RouteCalculatingCard extends StatelessWidget {
           CircularProgressIndicator(color: AppColors.primaryGreen),
           SizedBox(height: 18),
           Text(
-            'AIが店内の最適ルートを\n計算しているよ…',
+            'AIがまわる順番を\n考えているよ…',
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold, height: 1.5),
           ),

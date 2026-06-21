@@ -6,7 +6,7 @@ import 'compass_screen.dart';
 import 'quiz_screen.dart';
 import 'sticker_screen.dart';
 
-/// 企画書の「① AIルートナビシステム」を再現する画面。
+/// 企画書の「① 巡回順ナビ（順番はAIが提案・ナビ制御はローカル）」を再現する画面。
 /// ・全ルートは見せず、次の棚エリアだけをミッション形式で1つずつ提示
 /// ・移動中は A作成の [CompassScreen]（方位磁針＋目的地表示＋到着ボタン）で案内する
 /// ・2件目到達時に「危険箇所ポップアップ」のデモも表示
@@ -124,7 +124,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('はとナビ AIルート案内'),
+        title: const Text('はとナビ おつかいナビ'),
         actions: [
           IconButton(
             tooltip: 'リストにない商品をスキャン',

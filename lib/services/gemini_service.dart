@@ -13,18 +13,19 @@ class GeminiService {
   static Uri get _endpoint => Uri.base.resolve('/api/gemini');
   static const Duration _timeout = Duration(seconds: 8);
 
-  /// 買い物リストの巡回順（item の id の並び）を返す。失敗・不正時は null。
-  static Future<List<String>?> planRoute(List<ShoppingItem> items) async {
+  /// 商品を回る「順番」だけを提案する。物理ルートは生成しない。
+  /// 戻り値は item の id の並び。失敗・不正時は null。
+  static Future<List<String>?> suggestVisitOrder(List<ShoppingItem> items) async {
     try {
       final resp = await http
           .post(
             _endpoint,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'mode': 'route',
+              'mode': 'order',
               'items': [
                 for (final it in items)
-                  {'id': it.id, 'name': it.name, 'area': it.area}
+                  {'id': it.id, 'name': it.name, 'areaId': it.areaId}
               ],
             }),
           )
