@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../services/gemini_service.dart';
 import 'navigation_screen.dart';
 import 'safety_pledge_screen.dart';
 
@@ -37,13 +38,24 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       ),
     );
 
-    await Future.delayed(const Duration(milliseconds: 1600));
+    final selectedItems =
+        sampleItems.where((item) => _selectedIds.contains(item.id)).toList();
+
+    // 演出を見せつつ、裏で Gemini に巡回順を尋ねる（最低1.2秒は表示）。
+    // 失敗・キー未設定時は null が返り、選択順のままフォールバックする。
+    final routeFuture = GeminiService.planRoute(selectedItems);
+    await Future.delayed(const Duration(milliseconds: 1200));
+    final order = await routeFuture;
 
     if (!mounted) return;
     Navigator.of(context).pop(); // ローディングダイアログを閉じる
 
-    final selectedItems =
-        sampleItems.where((item) => _selectedIds.contains(item.id)).toList();
+    // Gemini が順番を返したらその順に並べ替える。
+    var orderedItems = selectedItems;
+    if (order != null) {
+      final byId = {for (final it in selectedItems) it.id: it};
+      orderedItems = [for (final id in order) byId[id]!];
+    }
 
     // ルート計算後はいきなりナビへ進まず、まず安全のお約束画面を挟む。
     // 「やくそくした！スタート！」を押したら NavigationScreen へ置き換え遷移する。
@@ -53,7 +65,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           onStart: () {
             Navigator.of(pledgeContext).pushReplacement(
               MaterialPageRoute(
-                builder: (_) => NavigationScreen(items: selectedItems),
+                builder: (_) => NavigationScreen(items: orderedItems),
               ),
             );
           },

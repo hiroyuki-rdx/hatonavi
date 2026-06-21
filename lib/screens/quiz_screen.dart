@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/hatoppy_widget.dart';
+import '../services/gemini_service.dart';
 
 enum _Phase { idle, scanning, quiz, result }
 
@@ -20,17 +21,32 @@ class _QuizScreenState extends State<QuizScreen> {
   _Phase _phase = _Phase.idle;
   bool _isCorrect = false;
 
+  /// Gemini が生成したクイズ。null のときは ShoppingItem の固定クイズを使う。
+  GeneratedQuiz? _quiz;
+
+  // 実際に出題する各要素（Gemini生成 → なければ固定クイズにフォールバック）。
+  String get _question => _quiz?.question ?? widget.item.question;
+  List<String> get _choices => _quiz?.choices ?? widget.item.choices;
+  int get _correctIndex => _quiz?.correctIndex ?? widget.item.correctIndex;
+  String get _explanation => _quiz?.explanation ?? widget.item.explanation;
+
   Future<void> _startScan() async {
     setState(() => _phase = _Phase.scanning);
+    // スキャン演出の裏で Gemini にクイズ生成を依頼（失敗時は固定クイズ）。
+    final genFuture = GeminiService.generateQuiz(widget.item);
     await Future.delayed(const Duration(milliseconds: 1100));
+    final gen = await genFuture;
     if (!mounted) return;
-    setState(() => _phase = _Phase.quiz);
+    setState(() {
+      _quiz = gen;
+      _phase = _Phase.quiz;
+    });
   }
 
   void _selectChoice(int index) {
     if (_phase != _Phase.quiz) return;
     setState(() {
-      _isCorrect = index == widget.item.correctIndex;
+      _isCorrect = index == _correctIndex;
       _phase = _Phase.result;
     });
   }
@@ -46,9 +62,14 @@ class _QuizScreenState extends State<QuizScreen> {
           child: switch (_phase) {
             _Phase.idle => _IdleView(item: item, onScan: _startScan),
             _Phase.scanning => const _ScanningView(),
-            _Phase.quiz => _QuizView(item: item, onSelect: _selectChoice),
+            _Phase.quiz => _QuizView(
+                question: _question,
+                choices: _choices,
+                onSelect: _selectChoice,
+              ),
             _Phase.result => _ResultView(
                 item: item,
+                explanation: _explanation,
                 isCorrect: _isCorrect,
                 onNext: () => Navigator.of(context).pop(_isCorrect),
               ),
@@ -122,9 +143,14 @@ class _ScanningView extends StatelessWidget {
 }
 
 class _QuizView extends StatelessWidget {
-  final ShoppingItem item;
+  final String question;
+  final List<String> choices;
   final ValueChanged<int> onSelect;
-  const _QuizView({required this.item, required this.onSelect});
+  const _QuizView({
+    required this.question,
+    required this.choices,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -144,11 +170,11 @@ class _QuizView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        HatoppyTalk(message: item.question),
+        HatoppyTalk(message: question),
         const SizedBox(height: 22),
         Expanded(
           child: ListView.separated(
-            itemCount: item.choices.length,
+            itemCount: choices.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
               return OutlinedButton(
@@ -156,7 +182,7 @@ class _QuizView extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   alignment: Alignment.centerLeft,
                 ),
-                child: Text(item.choices[index]),
+                child: Text(choices[index]),
               );
             },
           ),
@@ -168,11 +194,13 @@ class _QuizView extends StatelessWidget {
 
 class _ResultView extends StatelessWidget {
   final ShoppingItem item;
+  final String explanation;
   final bool isCorrect;
   final VoidCallback onNext;
 
   const _ResultView({
     required this.item,
+    required this.explanation,
     required this.isCorrect,
     required this.onNext,
   });
@@ -212,7 +240,7 @@ class _ResultView extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Text(
-            item.explanation,
+            explanation,
             textAlign: TextAlign.center,
             style: const TextStyle(height: 1.6, fontSize: 14),
           ),

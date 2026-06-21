@@ -2,6 +2,6 @@
   "buildCommand": "git clone https://github.com/flutter/flutter.git --depth 1 -b stable _flutter && _flutter/bin/flutter config --no-analytics && _flutter/bin/flutter build web --release",
   "outputDirectory": "build/web",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
