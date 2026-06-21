@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../widgets/hatoppy_widget.dart';
 import '../services/compass_service.dart';
 import '../services/motion_service.dart';
+import '../services/speech_service.dart';
 
 /// 移動中の「方位磁針画面」。スマホのコンパスセンサーと連携し、
 /// 次に向かう棚エリアへの方角を大きな針で示す。
@@ -90,6 +91,11 @@ class _CompassScreenState extends State<CompassScreen> {
     _motionSub?.cancel();
     _motionSub = _motionService.runningStream.listen((running) {
       if (!mounted) return;
+      // 走り始めた瞬間（false→true）に音声でも止めるよう促す。
+      // runningStream は状態変化時のみ流れるので、ここで多重再生にならない。
+      if (running) {
+        SpeechService.speak('とまって！ まえをみて ゆっくりあるこうね');
+      }
       setState(() => _isRunning = running);
     });
   }
