@@ -68,6 +68,9 @@ class GeminiService {
               'area': item.area,
               'level': level,
               'levelHint': levelHint,
+              // ハルシネーション対策：手書きの「正しい事実」を渡し、これだけを根拠に
+              // 出題させる（AIに事実を発明させない＝グラウンディング）。
+              'fact': item.explanation,
             }),
           )
           .timeout(_timeout);
@@ -82,6 +85,8 @@ class GeminiService {
       if (q is! String || q.trim().isEmpty) return null;
       if (choices == null || choices.length != 4) return null;
       if (choices.any((c) => c.trim().isEmpty)) return null;
+      // 選択肢の重複はNG（4つすべて異なること）。
+      if (choices.map((c) => c.trim()).toSet().length != 4) return null;
       if (ci is! int || ci < 0 || ci > 3) return null;
       if (exp is! String || exp.trim().isEmpty) return null;
       return GeneratedQuiz(

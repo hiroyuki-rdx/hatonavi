@@ -17,7 +17,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  /// 現在選択中のレベル id。初期値は既定（無ければ「ふつう」）。
+  /// 現在選択中のレベル id。初期値は既定（無ければ「小学生」）。
   int _levelId = LevelService.defaultId;
 
   @override
@@ -189,7 +189,7 @@ class _LevelChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 「ふつう（小1〜2）」→「ふつう」のように、括弧前の短い名前だけ表示する。
+    // 「小学生（1〜3年）」→「小学生」のように、括弧前の短い名前だけ表示する。
     final shortLabel = level.label.split('（').first;
     return Material(
       color: selected ? AppColors.primaryGreen : Colors.white,

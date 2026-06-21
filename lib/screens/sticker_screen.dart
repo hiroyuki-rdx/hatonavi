@@ -6,7 +6,7 @@ import 'home_screen.dart';
 import 'point_screen.dart';
 
 /// 企画書「③ リアル店舗連動『おてつだい達成シール』」を再現する完了画面。
-/// ピピットセルフでのお会計をうながす演出 → シール引換券の表示 → 獲得バッジ（ご当地はとっぴー図鑑）の確認、
+/// お会計をうながす演出 → シール引換券の表示 → 獲得バッジ（ご当地はとっぴー図鑑）の確認、
 /// という一連の体験をまとめている。
 class StickerScreen extends StatefulWidget {
   final int totalItems;
@@ -88,7 +88,7 @@ class _StickerScreenState extends State<StickerScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'ピピットセルフでお会計してね',
+            'おかいけいに すすもうね',
             style: TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 24),
@@ -205,7 +205,7 @@ class _PayingView extends StatelessWidget {
           CircularProgressIndicator(color: Colors.white),
           SizedBox(height: 20),
           Text(
-            'ピピットセルフでお会計してね',
+            'おかいけいに すすもうね',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ],

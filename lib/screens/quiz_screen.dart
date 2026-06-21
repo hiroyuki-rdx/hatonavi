@@ -9,7 +9,7 @@ import '../services/level_service.dart';
 enum _Phase { idle, camera, adding, quiz, result }
 
 /// 企画書「② はとっぴーの地産地消おつかいクイズ」を再現する画面。
-/// スキャン演出 → ピピットセルフへのカゴ追加演出 → はとっぴーのクイズ → 正誤フィードバック
+/// スキャン演出 → 読み込み → はとっぴーのクイズ → 正誤フィードバック
 /// の順に進む。正解した場合のみ Navigator.pop(true) でバッジ獲得を呼び出し元に伝える。
 class QuizScreen extends StatefulWidget {
   final ShoppingItem item;
@@ -148,7 +148,7 @@ class _ScanningView extends StatelessWidget {
           CircularProgressIndicator(color: AppColors.primaryGreen),
           SizedBox(height: 18),
           Text(
-            'スキャン中…\nピピットセルフのカゴに追加しています',
+            'よみこみ中…',
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold, height: 1.5),
           ),
@@ -159,7 +159,7 @@ class _ScanningView extends StatelessWidget {
 }
 
 /// 実カメラでバーコードを読み取るビュー（mobile_scanner v7）。
-/// ピピットセルフのスキャン体験そのもの。カメラが使えない端末では
+/// 実カメラでバーコードを読み取る。カメラが使えない端末では
 /// errorBuilder＋下のボタンで「スキップ」して先へ進める（デモが止まらない）。
 class _ScannerView extends StatefulWidget {
   /// バーコードを読み取れたら、その文字列を渡して呼ばれる。
@@ -276,7 +276,7 @@ class _QuizView extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: const Text(
-            '✅ ピピットセルフのカゴに追加されました！',
+            '✅ よみとれたよ！',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
