@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/point_service.dart';
+import '../widgets/sticker_ticket.dart';
 
-/// おつかい完了後の「ポイント確認画面」。
-/// 今回獲得したポイントと累計ポイントを表示し、
-/// 累計がしきい値に届いていればシール交換できることを伝える。
+/// ポイント確認・シール交換画面。
 ///
+/// おつかい完了後（[earnedPoints] > 0）にも、ホームの「ポイント・シールこうかん」
+/// ボタン（[fromHome] = true）からも開ける。
+/// 2ポイントで1スタンプ、5スタンプ（＝10ポイント）たまるとシールと交換できる。
 /// 累計ポイントは [PointService.loadTotal] で非同期に読み込む。
-/// 読み込み中は CircularProgressIndicator を表示する。
 class PointScreen extends StatefulWidget {
-  /// 今回のおつかいで獲得したポイント。
+  /// 今回のおつかいで獲得したポイント（ホームから開いたときは 0）。
   final int earnedPoints;
+
+  /// ホームから開いたか（true のときは「今回のポイント」等を出さない）。
+  final bool fromHome;
 
   /// 「ホームにもどる」を押したときのコールバック。
   final VoidCallback onBackToHome;
 
   const PointScreen({
     super.key,
-    required this.earnedPoints,
+    this.earnedPoints = 0,
+    this.fromHome = false,
     required this.onBackToHome,
   });
 
@@ -35,11 +40,50 @@ class _PointScreenState extends State<PointScreen> {
     _loadTotal();
   }
 
-  /// PointService から累計ポイントを読み込み、setState で反映する。
   Future<void> _loadTotal() async {
     final total = await PointService.loadTotal();
-    if (mounted) {
-      setState(() => _totalPoints = total);
+    if (mounted) setState(() => _totalPoints = total);
+  }
+
+  /// シール交換：引換券を見せ、「こうかん完了」を押したら累計から差し引く。
+  Future<void> _exchange() async {
+    final done = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const StickerTicket(),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('こうかんした！'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('とじる',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (done == true) {
+      final next = await PointService.redeem(); // 累計から10P差し引く
+      if (!mounted) return;
+      setState(() => _totalPoints = next);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('シールと こうかんしたよ！🎟️')),
+      );
     }
   }
 
@@ -56,52 +100,69 @@ class _PointScreenState extends State<PointScreen> {
   }
 
   Widget _buildResult(BuildContext context, int total) {
-    // しきい値まであと何ポイントか（達成済みなら 0）。
-    final remaining = PointService.stickerThreshold - total;
-    final reachedThreshold = remaining <= 0;
+    final stamps = PointService.stampsFor(total);
+    final canRedeem = PointService.canRedeem(total);
+    // 次のスタンプまであと何ポイントか。
+    final toNextStamp = PointService.pointsPerStamp - (total % PointService.pointsPerStamp);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           const SizedBox(height: 12),
-          const Text('🎉', style: TextStyle(fontSize: 56)),
-          const Text(
-            'おつかい大成功！',
+          Text(
+            widget.fromHome ? '🎟️' : '🎉',
+            style: const TextStyle(fontSize: 56),
+          ),
+          Text(
+            widget.fromHome ? 'ポイント・シールこうかん' : 'おつかい大成功！',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
               color: Colors.white,
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '大人にスマホをかえしてね',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white70,
+          if (!widget.fromHome) ...[
+            const SizedBox(height: 8),
+            const Text(
+              '大人にスマホをかえしてね',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.white70),
             ),
-          ),
+          ],
           const SizedBox(height: 24),
-          _EarnedPointsCard(earnedPoints: widget.earnedPoints),
-          const SizedBox(height: 16),
+          if (!widget.fromHome && widget.earnedPoints > 0) ...[
+            _EarnedPointsCard(earnedPoints: widget.earnedPoints),
+            const SizedBox(height: 16),
+          ],
           _TotalPointsCard(total: total),
           const SizedBox(height: 16),
-          _StickerBanner(
-            reachedThreshold: reachedThreshold,
-            remaining: remaining,
+          // スタンプカード（2ポイントで1こ・5こでシール交換）。
+          _StampCard(
+            stamps: stamps,
+            max: PointService.stampsToRedeem,
+            canRedeem: canRedeem,
+            toNextStamp: toNextStamp,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
+          // 交換は10ポイント（5スタンプ）たまったときだけ表示する。
+          if (canRedeem)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _exchange,
+                icon: const Icon(Icons.card_giftcard_rounded),
+                label: const Text('シールとこうかんする'),
+              ),
+            ),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
               onPressed: widget.onBackToHome,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: Colors.white,
-              ),
+              style: OutlinedButton.styleFrom(backgroundColor: Colors.white),
               child: const Text('ホームにもどる'),
             ),
           ),
@@ -112,7 +173,6 @@ class _PointScreenState extends State<PointScreen> {
   }
 }
 
-/// 累計ポイント読み込み中に表示するローディング表示。
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
@@ -233,68 +293,87 @@ class _TotalPointsCard extends StatelessWidget {
   }
 }
 
-/// 累計ポイントの状態に応じてシール交換の案内を出すバナー。
-/// しきい値以上なら緑で「交換できるよ！」、未満なら残りポイントを表示する。
-class _StickerBanner extends StatelessWidget {
-  final bool reachedThreshold;
-  final int remaining;
+/// スタンプカード。2ポイントで1スタンプ、5スタンプでシール交換。
+class _StampCard extends StatelessWidget {
+  final int stamps;
+  final int max;
+  final bool canRedeem;
+  final int toNextStamp;
 
-  const _StickerBanner({
-    required this.reachedThreshold,
-    required this.remaining,
+  const _StampCard({
+    required this.stamps,
+    required this.max,
+    required this.canRedeem,
+    required this.toNextStamp,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (reachedThreshold) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-        decoration: BoxDecoration(
-          color: AppColors.primaryGreen,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Row(
-          children: [
-            Text('🎟️', style: TextStyle(fontSize: 28)),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'シールと交換できるよ！',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
-        color: AppColors.accentYellow,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
+      child: Column(
         children: [
-          const Text('🎟️', style: TextStyle(fontSize: 28)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'あと$remainingポイントでシール交換！',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: AppColors.textDark,
-              ),
+          const Text(
+            'スタンプカード（2ポイントで 1こ）',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (int i = 0; i < max; i++) _StampSlot(filled: i < stamps),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            canRedeem
+                ? '5こ そろったよ！シールと こうかんできる🎟️'
+                : 'あと ${max - stamps} こで シールこうかん（つぎのスタンプまで あと $toNextStamp P）',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              fontWeight: FontWeight.bold,
+              color: canRedeem ? AppColors.primaryGreen : AppColors.textDark,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// スタンプ1つ分のマス。押されていれば🐤、空なら点線まる。
+class _StampSlot extends StatelessWidget {
+  final bool filled;
+  const _StampSlot({required this.filled});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: filled ? AppColors.accentOrange : AppColors.cardBeige,
+        border: Border.all(
+          color: filled ? AppColors.accentOrange : Colors.black26,
+          width: 2,
+        ),
+      ),
+      child: Text(
+        filled ? '🕊️' : '',
+        style: const TextStyle(fontSize: 22),
       ),
     );
   }
