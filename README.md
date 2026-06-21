@@ -1,17 +1,48 @@
-# hatopro_01
+# はとナビ（鳩ナビ）おつかいクエスト
 
-A new Flutter project.
+> 鳩ナビは、ピピットセルフを置き換えるものではなく、将来的にピピットセルフの買い物体験と接続可能な親子向け体験プロトタイプです。現時点では独立したWebデモとして動作し、将来的にはピピットセルフアプリ内統合、店舗貸出端末への搭載、または親のスマホでの買い物前後の補助利用を検討します。
 
-## Getting Started
+## 概要
+親子の買い物を知育エンタメ化する **Flutter Web デモ**です。子どもが「おつかいクエスト」として店内で商品を探し、食育クイズに答えながらポイントとシールを集めていく体験を提供します。平和堂×ソフトバンクのハッカソン向けプロトタイプとして開発しています。
 
-This project is a starting point for a Flutter application.
+## 主要機能
+- **巡回順の提案**：選ばれた商品をどの順番で回るかを提案（店内ルートそのものは作りません）。
+- **逐次ナビ**：固定マップ上の売り場情報と方位センサーを使った、アプリ側ローカルロジックによる案内。
+- **食育クイズ**：商品を「みつけた！」ときに出題。正解でポイント獲得。
+- **走行ロック／危険アラート**：子どもが歩きながら操作しないよう「とまって！」表示と音声で注意喚起（Web専用機能、非対応端末は通常進行）。
+- **ポイント／シール**：クエスト達成のごほうびとしてシールを付与。
 
-A few resources to get you started if this is your first Flutter project:
+## AIの役割
+AIは2つの用途に限定して使います。いずれも **検証＋フォールバック**を前提とし、不安定な出力でも体験が壊れないようにしています。
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- **巡回順の提案**：選ばれた商品をどう回るかを提案するだけ。店内ルート・ナビ・方角・安全・会計はローカルロジック（または将来はピピットセルフ側）が担当。
+- **クイズ生成**：商品に応じた食育クイズを生成。失敗時は固定データへフォールバック。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+> 会計・登録・精算は鳩ナビの役割ではありません。それらはピピットセルフが担います。鳩ナビのスキャンは決済ではなく、子どもが商品を見つけた合図です。
+
+## 技術スタック
+- **Flutter Web**
+- **Vercel**（ホスティング）
+- **Gemini 2.5 Flash**（巡回順提案・クイズ生成。APIキーは Vercel 環境変数で秘匿）
+- **mobile_scanner**（JANコードスキャン）
+
+## ローカル実行
+```bash
+flutter run -d chrome
+```
+
+> 方位センサー・カメラは HTTPS でしか動作しないため、それらの動作確認は Vercel のデプロイ先（`https://`）で行ってください。
+
+## デプロイ
+Vercel へのデプロイ手順は [`docs/デプロイ手順.md`](docs/デプロイ手順.md) を参照してください（`flutter build web --release` → `build/web` を公開）。
+
+## デモ範囲と将来構想
+**現時点では独立したWebデモ**として動作します。ピピットセルフとの接続は実装しておらず、運用イメージは次の3パターンを検討しています。
+
+| | パターン | 位置づけ |
+|---|---|---|
+| **A** | ピピットセルフアプリ内に子ども向けモードとして統合 | 理想・将来構想 |
+| **B** | 店舗の貸出端末に鳩ナビを搭載 | 現実的 |
+| **C** | 親のスマホで買い物の前後に補助として使う | 現デモに近い（同時切替運用は非現実的） |
+
+将来の接続先候補として、東芝テックの店舗プラットフォーム **ELERA** やパートナー向け **TEC Developers Hub** のAPIが考えられますが、いずれも**構想段階で未接続**です。具体的な連携方式は今後の検討事項です。

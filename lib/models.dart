@@ -7,8 +7,9 @@ library models;
 /// 商品名・案内する棚エリア・地産地消クイズ・獲得できるバッジをまとめて持つ。
 class ShoppingItem {
   final String id;
-  final String name; // 商品名（例：近江米）
-  final String area; // AIナビが提示する棚エリア（例：お米売り場）
+  final String name; // 商品名（例：みずうみ農園の トマト）
+  final String areaId; // 売り場マスタ(storeAreas)のキー（例：local_vegetables）
+  final String area; // AIナビが提示する棚エリアの表示名/売り場名（例：地場野菜）
   final String emoji; // 商品アイコン代わりの絵文字
   final String question; // はとっぴーの地産地消クイズ
   final List<String> choices; // 4択
@@ -21,6 +22,7 @@ class ShoppingItem {
   const ShoppingItem({
     required this.id,
     required this.name,
+    required this.areaId,
     required this.area,
     required this.emoji,
     required this.question,
@@ -33,102 +35,216 @@ class ShoppingItem {
   });
 }
 
-/// 企画書 2-② の「地産地消・食育クイズ」の例文に合わせたサンプル5品目。
-/// 滋賀県（平和堂のお膝元・琵琶湖）を意識した内容にしている。
+/// 売り場マスタ（1区画）のモデル。
+/// 店内マップ（`売り場マップ.pdf`）を開発時にデジタル化した固定データ。
+class StoreArea {
+  final String id; // 売り場ID（ShoppingItem.areaId と対応）
+  final String label; // 売り場の表示名（例：地場野菜）
+  final int pathIndex; // 一方向スイープ（入口→レジ）での並び順インデックス
+  final double x; // マップ上のX座標（方角・矢印計算用。今は0.0）
+  final double y; // マップ上のY座標（方角・矢印計算用。今は0.0）
+
+  const StoreArea(
+    this.id,
+    this.label,
+    this.pathIndex, {
+    this.x = 0.0,
+    this.y = 0.0,
+  });
+}
+
+/// 店内の売り場マスタ。
+/// `売り場マップ.pdf` を開発時にデジタル化したもので、pathIndex は
+/// 入口(スタート)からレジまでを一方向にめぐる「一方向スイープ順」を表す。
+/// AIナビはこの順番を基準に、リスト商品をなるべく一筆書きで回れるよう案内する。
+/// x,y はマップ上の座標（将来の方角・矢印計算用）。現時点では未計測のため 0.0。
+const Map<String, StoreArea> storeAreas = {
+  'start': StoreArea('start', 'スタート', 0),
+  'local_vegetables': StoreArea('local_vegetables', '地場野菜', 1),
+  'vegetables': StoreArea('vegetables', '野菜', 2),
+  'fruits': StoreArea('fruits', '果物', 3),
+  'fish': StoreArea('fish', 'お魚', 4),
+  'meat': StoreArea('meat', 'お肉', 5),
+  'tempura': StoreArea('tempura', '天ぷら', 6),
+  'side_dish': StoreArea('side_dish', '惣菜', 7),
+  'dairy': StoreArea('dairy', '乳製品', 8),
+  'yogurt': StoreArea('yogurt', 'ヨーグルト', 9),
+  'frozen': StoreArea('frozen', '冷凍食品', 10),
+  'drink': StoreArea('drink', '飲料水', 11),
+  'miso': StoreArea('miso', '味噌汁', 12),
+  'instant': StoreArea('instant', '即席食品', 13),
+  'tofu': StoreArea('tofu', '豆腐', 14),
+  'icecream': StoreArea('icecream', 'アイスクリーム', 15),
+  'beer': StoreArea('beer', 'ビール', 16),
+  'sake': StoreArea('sake', '日本酒', 17),
+  'sweets': StoreArea('sweets', 'お菓子', 18),
+  'kitchen': StoreArea('kitchen', '台所用品', 19),
+  'garbage': StoreArea('garbage', 'ゴミ袋', 20),
+  'egg': StoreArea('egg', '卵', 21),
+  'bread': StoreArea('bread', 'パン', 22),
+  'self_checkout': StoreArea('self_checkout', 'セルフレジ', 23),
+  'cashier': StoreArea('cashier', 'レジ', 24),
+};
+
+/// 地産地消・食育クイズつきのサンプル8品目。
+/// 商品名は架空ブランド＋一般名で、特定の実産地・実在商品には依存しない。
+/// クイズは「地元でとれたものは新鮮で、農家さん・牧場さんの応援になる」という
+/// 食育メッセージを、低学年向けにひらがな多めでやさしく出題している。
 const List<ShoppingItem> sampleItems = [
   ShoppingItem(
-    id: 'rice',
-    name: '近江米',
-    area: 'お米売り場',
-    emoji: '🌾',
-    question: 'これは滋賀県の農家さんが琵琶湖をキレイに守るために\n工夫して作ったお米だぴ！どんな工夫かな？',
-    choices: [
-      '農薬や肥料をできるだけ減らして育てている',
-      '毎日お水をたくさんあげている',
-      '夜だけ育てている',
-      '特別な透明な箱の中で育てている',
-    ],
-    correctIndex: 0,
-    explanation: '正解！農薬や肥料を減らすことで、田んぼの水が琵琶湖に流れても\n環境にやさしくなるよう工夫されているんだぴ🌾',
-    badgeName: '稲穂はとっぴー',
-    badgeEmoji: '🌾',
-  ),
-  ShoppingItem(
-    id: 'tomato',
-    name: '地場野菜（トマト）',
-    area: '野菜売り場',
+    id: 'vegetables',
+    name: 'みずうみ農園の トマト',
+    areaId: 'local_vegetables',
+    area: '地場野菜',
     emoji: '🍅',
-    question: '地場野菜のトマトは、琵琶湖のために\nどんな育て方をされているかな？',
+    question: 'ちかくの はたけで とれた トマトだぴ！\nとれたてが おみせに ならぶと、どんな いいことが あるかな？',
     choices: [
-      '農薬の量を決められた基準より減らして育てている',
-      '海外から飛行機で運んでいる',
-      '一年中ハウスの中で真っ暗にして育てている',
-      '土を使わずに水だけで育てている',
+      'はこぶ じかんが みじかくて しんせんなまま とどく',
+      'とおくへ いくほど あまくなる',
+      'いろが きえて しろくなる',
+      'よるだけ そだてている',
     ],
     correctIndex: 0,
-    explanation: '正解！「環境こだわり農産物」と呼ばれる、農薬や化学肥料を\n減らして琵琶湖を守る農法で作られているぴ🍅',
+    explanation: 'せいかい！ちかくの はたけだと はこぶ じかんが みじかいから、\nしんせんなまま おみせに ならべられるんだぴ🍅',
     badgeName: 'やさいはとっぴー',
     badgeEmoji: '🍅',
   ),
   ShoppingItem(
     id: 'milk',
-    name: '地元牛乳',
-    area: '乳製品売り場',
+    name: 'あおぞら牧場の ぎゅうにゅう',
+    areaId: 'dairy',
+    area: '乳製品',
     emoji: '🥛',
-    question: '地元の牧場でしぼられた牛乳が\nお店に届くまでの時間はどれくらいだと思う？',
+    question: 'ちかくの ぼくじょうで しぼった ぎゅうにゅうだぴ！\nちかくで つくると、どうして うれしいのかな？',
     choices: [
-      'しぼってから1〜2日くらいの新鮮なうちに届く',
-      '1ヶ月くらいかけて船で届く',
-      '一度凍らせてから届く',
-      '牛さんがお店まで運んでくる',
+      'しぼりたての しんせんさで はやく とどけられる',
+      'ふねで いっかげつ かけて とどく',
+      'うしさんが おみせまで はこんでくる',
+      'こおらせてからでないと のめない',
     ],
     correctIndex: 0,
-    explanation: '正解！地元の牧場だから、しぼりたての新鮮さのまま\nすぐにお店に並べられるんだぴ🥛',
-    badgeName: 'ミルクはとっぴー',
+    explanation: 'せいかい！ちかくの ぼくじょうだから、しぼりたての\nしんせんさの まま はやく とどけられるんだぴ🥛',
+    badgeName: 'ぎゅうにゅうはとっぴー',
     badgeEmoji: '🥛',
   ),
   ShoppingItem(
     id: 'egg',
-    name: '地玉子',
-    area: '卵売り場',
+    name: 'やまびこ農園の たまご',
+    areaId: 'egg',
+    area: '卵',
     emoji: '🥚',
-    question: '地元の養鶏場の卵が新鮮な理由は\n産地とお店の距離が関係しているよ。なぜかな？',
+    question: 'ちかくの のうえんで うまれた たまごだぴ！\nちかくで とれた たまごは、どうして しんせんなのかな？',
     choices: [
-      '近くで作られているので運ぶ時間が短くてすむから',
-      '卵が自分で歩いてくるから',
-      '冷凍してから解凍しているから',
-      '卵の中身を入れ替えているから',
+      'はこぶ きょりが みじかいから しんせんなまま とどく',
+      'たまごが じぶんで あるいてくるから',
+      'なんかいも こおらせているから',
+      'なかみを いれかえているから',
     ],
     correctIndex: 0,
-    explanation: '正解！地産地消だから運ぶ距離が短く、新鮮なまま\nお店に届けられるんだぴ🥚',
+    explanation: 'せいかい！ちかくで とれた たまごは はこぶ きょりが\nみじかいから、しんせんなまま とどけられるんだぴ🥚',
     badgeName: 'たまごはとっぴー',
     badgeEmoji: '🥚',
   ),
   ShoppingItem(
-    id: 'dressing',
-    name: '地元ドレッシング',
-    area: '調味料売り場',
-    emoji: '🧂',
-    question: 'このドレッシングは地元の野菜や果物を使うことで\nどんな良いことがあるかな？',
+    id: 'yogurt',
+    name: 'あおぞら牧場の ヨーグルト',
+    areaId: 'yogurt',
+    area: 'ヨーグルト',
+    emoji: '🥣',
+    question: 'ちかくの ぼくじょうの ぎゅうにゅうから つくった\nヨーグルトだぴ！ちかくの ものを かうと どんな いいことが あるかな？',
     choices: [
-      '地元の農家さんを応援できて、新鮮な材料が使える',
-      '味が全くしなくなる',
-      '賞味期限がなくなる',
-      '色が消えてしまう',
+      'ぼくじょうの ひとの おうえんに なる',
+      'あじが まったく しなくなる',
+      'いつまでも くさらなくなる',
+      'いろが きえてしまう',
     ],
     correctIndex: 0,
-    explanation: '正解！地元の食材を使うことで農家さんの応援になり、\n新鮮な美味しさも楽しめるんだぴ🧂',
-    badgeName: 'ちょうみりょうはとっぴー',
-    badgeEmoji: '🧂',
+    explanation: 'せいかい！ちかくの ものを かうと、つくっている\nぼくじょうの ひとの おうえんに なるんだぴ🥣',
+    badgeName: 'ヨーグルトはとっぴー',
+    badgeEmoji: '🥣',
+  ),
+  ShoppingItem(
+    id: 'bread',
+    name: 'こむぎ工房の パン',
+    areaId: 'bread',
+    area: 'パン',
+    emoji: '🍞',
+    question: 'ちかくの おみせで やいた パンだぴ！\nやきたての パンが はやく ならぶのは、なぜかな？',
+    choices: [
+      'ちかくで やくから やきたてを すぐ ならべられる',
+      'そとの くにから ふねで はこんでくるから',
+      'いちど こおらせているから',
+      'パンが とんでくるから',
+    ],
+    correctIndex: 0,
+    explanation: 'せいかい！ちかくで やくから、やきたての おいしさを\nすぐに おみせへ ならべられるんだぴ🍞',
+    badgeName: 'パンはとっぴー',
+    badgeEmoji: '🍞',
+  ),
+  ShoppingItem(
+    id: 'meat',
+    name: 'みのり牧場の おにく',
+    areaId: 'meat',
+    area: 'お肉',
+    emoji: '🥩',
+    question: 'ちかくの ぼくじょうで そだてた おにくだぴ！\nちかくの おにくを えらぶと、どんな いいことが あるかな？',
+    choices: [
+      'そだてた ぼくじょうの ひとを おうえんできる',
+      'はこぶほど あじが こくなる',
+      'ずっと ふえつづける',
+      'いろが にじんでしまう',
+    ],
+    correctIndex: 0,
+    explanation: 'せいかい！ちかくの おにくを かうと、たいせつに\nそだてた ぼくじょうの ひとの おうえんに なるんだぴ🥩',
+    badgeName: 'おにくはとっぴー',
+    badgeEmoji: '🥩',
+  ),
+  ShoppingItem(
+    id: 'fish',
+    name: 'みなと水産の おさかな',
+    areaId: 'fish',
+    area: 'お魚',
+    emoji: '🐟',
+    question: 'ちかくの みなとで とれた おさかなだぴ！\nちかくで とれた おさかなが しんせんなのは なぜかな？',
+    choices: [
+      'みなとから ちかいから はやく とどく',
+      'おさかなが じぶんで およいでくるから',
+      'なんども こおらせるから',
+      'いろを ぬっているから',
+    ],
+    correctIndex: 0,
+    explanation: 'せいかい！ちかくの みなとから はやく とどくから、\nしんせんな おさかなを たべられるんだぴ🐟',
+    badgeName: 'おさかなはとっぴー',
+    badgeEmoji: '🐟',
+  ),
+  ShoppingItem(
+    id: 'fruits',
+    name: 'ひだまり農園の くだもの',
+    areaId: 'fruits',
+    area: '果物',
+    emoji: '🍎',
+    question: 'ちかくの はたけで そだった くだものだぴ！\nちかくで とれた くだものを えらぶと、どんな いいことが あるかな？',
+    choices: [
+      'しんせんで、はたけの ひとの おうえんにも なる',
+      'とおくへ いくほど あまくなる',
+      'たねが なくなる',
+      'よるしか たべられなくなる',
+    ],
+    correctIndex: 0,
+    explanation: 'せいかい！ちかくの くだものは しんせんで、そだてた\nはたけの ひとの おうえんにも なるんだぴ🍎',
+    badgeName: 'くだものはとっぴー',
+    badgeEmoji: '🍎',
   ),
 ];
 
 /// 「リストにない商品」を途中でスキャンしたとき（途中追加）に使うボーナス用ミッション。
 /// 実際の商品名は JAN→平和堂商品管理番号→商品DB の連携が必要で今回は権限が無いため、
 /// 商品名が分からなくても出せる「地産地消の一般クイズ」＋限定バッジを用意している。
+/// areaId は売り場マスタ外を表す 'unknown'（リスト外スキャン用）。
 const ShoppingItem bonusItem = ShoppingItem(
   id: 'bonus',
   name: 'お店でみつけた地元の食べもの',
+  areaId: 'unknown',
   area: 'リストにない商品',
   emoji: '🛒',
   question: 'お店には、近くの畑や牧場でとれた「地元の食べもの」が\nたくさんあるよ。地元のものを買うと、どんないいことがあるかな？',

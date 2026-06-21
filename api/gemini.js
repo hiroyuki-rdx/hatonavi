@@ -4,7 +4,7 @@
 // フロントは同一オリジンの /api/gemini を叩くだけ。CORS・キー管理をここで吸収する。
 //
 // mode:
-//   "route" … 買い物リスト(items)を店内を効率よく回る順番に並べ替え → {"order":[id,...]}
+//   "order" … 買い物リスト(items)を店内を効率よく回れる巡回順に並べ替え → {"order":[id,...]}
 //   "quiz"  … 商品名から食育クイズを1問生成 → {question, choices[4], correctIndex, explanation}
 //
 // 失敗時はエラーを返し、フロント側が固定データ(models.dart)にフォールバックする
@@ -27,13 +27,14 @@ module.exports = async (req, res) => {
   body = body || {};
 
   let prompt;
-  if (body.mode === 'route') {
+  if (body.mode === 'order') {
+    // 物理的な通路ルートではなく、店内を効率よく回れる「巡回順」に並べ替える。
     const items = Array.isArray(body.items) ? body.items : [];
     prompt =
-      '次の買い物リストを、スーパーの店内を効率よく回れる順番に並べ替えてください。\n' +
+      '次の買い物リストを、物理的な通路ルートではなく、スーパーの店内を効率よく回れる「巡回順」に並べ替えてください。\n' +
       'リスト(JSON): ' + JSON.stringify(items) + '\n' +
-      '出力は {"order":["id1","id2",...]} のJSONのみ。' +
-      'idは入力のidだけを使い、全て1回ずつ含めること。';
+      '出力は {"order":["id",...]} のJSONのみ。' +
+      'idは入力のidだけを使い、各1回ずつ含めること。';
   } else if (body.mode === 'quiz') {
     const name = String(body.name || '商品');
     const area = String(body.area || '');
