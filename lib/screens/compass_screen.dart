@@ -50,8 +50,14 @@ class _CompassScreenState extends State<CompassScreen> {
   /// 一定時間センサー値が来ないときにタップ案内へ切り替えるためのタイマー。
   Timer? _waitTimer;
 
-  /// 現在の方位角（0〜360度）。センサー値が来るまでは北固定（0度）。
-  double _heading = 0;
+  /// 針の連続回転量（turns）。0〜1に折り返さず累積し、針を最短回りで回す。
+  double _turns = 0;
+
+  /// 直前に受け取った方位角（最短回りの差分計算用）。
+  double _lastHeading = 0;
+
+  /// 最初の方位を受け取ったか（初回は差分ではなく直接セット）。
+  bool _hasFirstHeading = false;
 
   /// センサー値を1度でも受け取れたか。受け取れるまでは読み込み中表示にする。
   bool _hasHeading = false;
@@ -78,7 +84,17 @@ class _CompassScreenState extends State<CompassScreen> {
     _subscription = _compassService.headingStream.listen((heading) {
       if (!mounted) return;
       setState(() {
-        _heading = heading;
+        // 0/360 をまたいでも針が最短回りで回るよう、差分を累積する。
+        if (!_hasFirstHeading) {
+          _hasFirstHeading = true;
+          _turns = heading / 360;
+        } else {
+          double delta = heading - _lastHeading;
+          while (delta > 180) delta -= 360;
+          while (delta < -180) delta += 360;
+          _turns += delta / 360;
+        }
+        _lastHeading = heading;
         _hasHeading = true;
         _needsTap = false;
       });
@@ -145,7 +161,7 @@ class _CompassScreenState extends State<CompassScreen> {
               child: Center(
                 child: SingleChildScrollView(
                   child: _CompassDial(
-                    heading: _heading,
+                    turns: _turns,
                     hasHeading: _hasHeading,
                     needsTap: _needsTap,
                     onEnable: _enableByTap,
@@ -216,8 +232,8 @@ class _RunLockOverlay extends StatelessWidget {
 /// 中央の大きなコンパス。方位角に応じて針を AnimatedRotation で回す。
 /// センサー値が未取得のときは読み込み中メッセージを表示する。
 class _CompassDial extends StatelessWidget {
-  /// 現在の方位角（0〜360度）。
-  final double heading;
+  /// 針の連続回転量（turns, 0〜1に折り返さない累積値）。
+  final double turns;
 
   /// センサー値を受け取れているか。
   final bool hasHeading;
@@ -229,7 +245,7 @@ class _CompassDial extends StatelessWidget {
   final VoidCallback onEnable;
 
   const _CompassDial({
-    required this.heading,
+    required this.turns,
     required this.hasHeading,
     required this.needsTap,
     required this.onEnable,
@@ -257,9 +273,9 @@ class _CompassDial extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: AnimatedRotation(
-            // 0〜360度を回転（turns）に変換して針を回す。
-            turns: heading / 360,
-            duration: const Duration(milliseconds: 400),
+            // 連続化した turns で最短回りに回す（0/360の折り返しでも自然）。
+            turns: turns,
+            duration: const Duration(milliseconds: 300),
             child: const Icon(
               Icons.navigation,
               size: 100,

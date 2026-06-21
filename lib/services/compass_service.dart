@@ -8,6 +8,7 @@
 import 'dart:async';
 import 'dart:html' as html;
 import 'dart:js_util' as js_util;
+import 'dart:math';
 
 /// デバイスの方位センサー（コンパス）と連携するサービス。
 ///
@@ -20,6 +21,16 @@ import 'dart:js_util' as js_util;
 /// - Android Chrome 等: `deviceorientationabsolute` の `alpha`（反時計回り）を
 ///   `360 - alpha` で北基準に変換する。
 class CompassService {
+  /// 角度基準値（オフセット, 度）。店舗マップの向きに合わせる／手動キャリブレーション用。
+  /// 例：店舗が真北から30度ずれていれば 30 を入れると棚方向の見え方が合う。
+  static double baselineOffsetDeg = 0.0;
+
+  /// 円環スムージング係数（0〜1, 小さいほど滑らかで反応はゆっくり）。針のブレを抑える。
+  static const double _smoothing = 0.2;
+
+  /// この度数未満の変化は出力しない（針の細かなチラつき防止）。
+  static const double _minDeltaDeg = 1.0;
+
   /// 0〜360度（北=0）の方位を流すストリーム。
   ///
   /// 絶対方位イベント（`deviceorientationabsolute`）と通常の
@@ -29,6 +40,36 @@ class CompassService {
     final controller = StreamController<double>.broadcast();
     final List<StreamSubscription<html.Event>> subs = [];
 
+    // 円環スムージング用の状態。角度を単位ベクトル(cos,sin)に直してEMAすることで、
+    // 0/360 の境界をまたいでも正しく平滑化でき、針のブレを抑えられる。
+    double sx = 0, sy = 0;
+    bool hasSmooth = false;
+    double lastEmitted = -999;
+
+    void emit(double rawDeg) {
+      // 角度基準値（店舗の向き補正・手動キャリブレーション）を反映する。
+      double h = (rawDeg - baselineOffsetDeg) % 360;
+      if (h < 0) h += 360;
+      final rad = h * pi / 180;
+      if (!hasSmooth) {
+        sx = cos(rad);
+        sy = sin(rad);
+        hasSmooth = true;
+      } else {
+        sx = sx * (1 - _smoothing) + cos(rad) * _smoothing;
+        sy = sy * (1 - _smoothing) + sin(rad) * _smoothing;
+      }
+      double sm = atan2(sy, sx) * 180 / pi;
+      if (sm < 0) sm += 360;
+      // 微小変化（針のチラつき）は捨てる。初回は必ず出す。
+      double d = (sm - lastEmitted).abs();
+      if (d > 180) d = 360 - d;
+      if (lastEmitted < -100 || d >= _minDeltaDeg) {
+        lastEmitted = sm;
+        controller.add(sm);
+      }
+    }
+
     void handle(html.Event event) {
       try {
         // iOS Safari: webkitCompassHeading は北=0・時計回りの絶対方位。
@@ -36,7 +77,7 @@ class CompassService {
         if (webkit != null) {
           double h = (webkit as num).toDouble() % 360;
           if (h < 0) h += 360;
-          controller.add(h);
+          emit(h);
           return;
         }
         // Android 等: alpha（反時計回り）を北基準（時計回り）へ変換。
@@ -44,7 +85,7 @@ class CompassService {
         if (alpha != null) {
           double h = (360 - (alpha as num).toDouble()) % 360;
           if (h < 0) h += 360;
-          controller.add(h);
+          emit(h);
         }
       } catch (_) {
         // 壊れたイベントは無視して次を待つ。

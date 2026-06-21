@@ -9,15 +9,19 @@ import 'dart:html' as html;
 import 'dart:js_util' as js_util;
 import 'dart:math';
 
-/// 加速度センサーから「走行（激しい動き）」を検知するサービス。
+/// 加速度センサーから「子供の歩行速度を超えた動き（早歩き・走り）」を検知するサービス。
 ///
-/// [runningStream] が true を流している間は走っている（＝画面ロックすべき）。
+/// [runningStream] が true を流している間は速すぎる（＝画面ロック＆警告すべき）。
 /// センサー非対応・未許可の端末では**何も流さない**ため、ロックは出ず
 /// アプリは通常どおり進行する（デモがセンサー有無で止まらない安全設計）。
 class MotionService {
-  /// この合成加速度（重力除外, m/s^2）を超えたら「走っている」とみなすしきい値。
-  /// 歩行は数 m/s^2、走り・激しい振りは 10〜20 程度。実機で微調整可。
-  static const double _runThreshold = 7.0;
+  /// 「子供の平均的な歩行速度を超えた（早歩き・走り）」とみなす合成加速度
+  /// （重力除外, m/s^2）のしきい値。落ち着いた歩行 ~1〜3／早歩き ~3〜5／走り ~6〜15。
+  /// ナビ用のゆっくり歩行は許し、それより速いと警告する狙いで 4.0（小さいほど敏感）。
+  static const double _walkAlertThreshold = 4.0;
+
+  /// 単発の衝撃での誤発火を防ぐため、しきい値超えがこの時間続いたら警告する。
+  static const int _sustainMs = 500;
 
   /// 走行センサーの利用権限を要求する。許可されたら true を返す。
   ///
@@ -47,6 +51,7 @@ class MotionService {
     StreamSubscription<html.DeviceMotionEvent>? sub;
     bool isRunning = false;
     double ema = 0.0; // 平滑化した動きの強さ
+    DateTime? overSince; // しきい値を超え始めた時刻（持続判定用）
     Timer? calmTimer; // 落ち着いてから解除するためのタイマー（チラつき防止）
 
     void setRunning(bool v) {
@@ -74,18 +79,26 @@ class MotionService {
           final z = g.z!.toDouble();
           mag = (sqrt(x * x + y * y + z * z) - 9.8).abs();
         }
-        ema = ema * 0.6 + mag * 0.4; // ノイズを平滑化
+        ema = ema * 0.7 + mag * 0.3; // ノイズを平滑化
 
-        if (ema > _runThreshold) {
-          calmTimer?.cancel();
-          calmTimer = null;
-          setRunning(true);
-        } else if (isRunning && calmTimer == null) {
-          // 落ち着いたら少し待ってから解除する。
-          calmTimer = Timer(const Duration(milliseconds: 1200), () {
+        if (ema > _walkAlertThreshold) {
+          // 歩行速度超えが _sustainMs 続いたら警告（単発の衝撃は無視）。
+          overSince ??= DateTime.now();
+          if (DateTime.now().difference(overSince!).inMilliseconds >=
+              _sustainMs) {
+            calmTimer?.cancel();
             calmTimer = null;
-            setRunning(false);
-          });
+            setRunning(true);
+          }
+        } else {
+          overSince = null;
+          if (isRunning && calmTimer == null) {
+            // 落ち着いたら少し待ってから解除する。
+            calmTimer = Timer(const Duration(milliseconds: 1200), () {
+              calmTimer = null;
+              setRunning(false);
+            });
+          }
         }
       } catch (_) {
         // 壊れたイベントは無視。
