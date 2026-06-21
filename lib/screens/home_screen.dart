@@ -3,6 +3,7 @@ import '../theme.dart';
 import '../widgets/hatoppy_widget.dart';
 import '../services/level_service.dart';
 import 'shopping_list_screen.dart';
+import 'point_screen.dart';
 
 /// アプリのトップ画面。
 ///
@@ -94,6 +95,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                   child: const Text('クエストをはじめる！'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // いつでもポイント確認・シール交換ができる導線。
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => PointScreen(
+                          fromHome: true,
+                          onBackToHome: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.card_giftcard_rounded),
+                  label: const Text('ポイント・シールこうかん'),
                 ),
               ),
               const SizedBox(height: 28),
