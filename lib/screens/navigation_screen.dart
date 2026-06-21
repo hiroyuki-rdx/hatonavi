@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
@@ -117,10 +119,38 @@ class _NavigationScreenState extends State<NavigationScreen> {
     }
   }
 
+  /// 現在地（origin）から次の売り場（target）への方位角を求める。
+  ///
+  /// ・origin の売り場ID＝最初(_index==0)はスタート、それ以外は1つ前のミッションの売り場。
+  /// ・target の売り場ID＝今回のミッションの売り場。
+  /// ・座標は storeAreas（x=東/右, y=北/上, 0..100）から引く。
+  /// ・方位角は「北(=上)を0度、時計回り」で返す：
+  ///     bearing = atan2(dx, dy) * 180/pi   （dx=東方向, dy=北方向）
+  ///   atan2 の第1引数に dx(東)、第2引数に dy(北)を渡すことで、
+  ///   北を基準に東(右)回りで増える角度＝コンパスの方位角になる。
+  /// ・0..360 に正規化して返す。座標が欠落していれば null。
+  double? _bearingToCurrentTarget() {
+    final originId = _index == 0 ? 'start' : widget.items[_index - 1].areaId;
+    final targetId = widget.items[_index].areaId;
+    final origin = storeAreas[originId];
+    final target = storeAreas[targetId];
+    if (origin == null || target == null) return null;
+
+    final dx = target.x - origin.x; // 東(右)方向の差
+    final dy = target.y - origin.y; // 北(上)方向の差
+    if (dx == 0 && dy == 0) return null; // 同地点なら方角は定義できない
+
+    double bearing = atan2(dx, dy) * 180 / pi;
+    bearing %= 360;
+    if (bearing < 0) bearing += 360;
+    return bearing;
+  }
+
   @override
   Widget build(BuildContext context) {
     final total = widget.items.length;
     final current = widget.items[_index];
+    final targetBearing = _bearingToCurrentTarget();
 
     return Scaffold(
       appBar: AppBar(
@@ -167,6 +197,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
               child: CompassScreen(
                 key: ValueKey('compass-${current.id}'),
                 targetAreaName: current.area,
+                targetBearingDeg: targetBearing,
                 onArrived: _onArrived,
               ),
             ),

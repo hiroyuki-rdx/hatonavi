@@ -57,33 +57,36 @@ class StoreArea {
 /// `売り場マップ.pdf` を開発時にデジタル化したもので、pathIndex は
 /// 入口(スタート)からレジまでを一方向にめぐる「一方向スイープ順」を表す。
 /// AIナビはこの順番を基準に、リスト商品をなるべく一筆書きで回れるよう案内する。
-/// x,y はマップ上の座標（将来の方角・矢印計算用）。現時点では未計測のため 0.0。
+///
+/// x,y は方角計算用の近似座標（`売り場マップ.pdf` の配置に基づく近似）。
+/// x=左→右で 0..100、y=下→上で 0..100。原点は左下、x が東/右、y が北/上。
+/// NavigationScreen で「現在地→次売り場」の方位角(bearing)を求めるのに使う。
 const Map<String, StoreArea> storeAreas = {
-  'start': StoreArea('start', 'スタート', 0),
-  'local_vegetables': StoreArea('local_vegetables', '地場野菜', 1),
-  'vegetables': StoreArea('vegetables', '野菜', 2),
-  'fruits': StoreArea('fruits', '果物', 3),
-  'fish': StoreArea('fish', 'お魚', 4),
-  'meat': StoreArea('meat', 'お肉', 5),
-  'tempura': StoreArea('tempura', '天ぷら', 6),
-  'side_dish': StoreArea('side_dish', '惣菜', 7),
-  'dairy': StoreArea('dairy', '乳製品', 8),
-  'yogurt': StoreArea('yogurt', 'ヨーグルト', 9),
-  'frozen': StoreArea('frozen', '冷凍食品', 10),
-  'drink': StoreArea('drink', '飲料水', 11),
-  'miso': StoreArea('miso', '味噌汁', 12),
-  'instant': StoreArea('instant', '即席食品', 13),
-  'tofu': StoreArea('tofu', '豆腐', 14),
-  'icecream': StoreArea('icecream', 'アイスクリーム', 15),
-  'beer': StoreArea('beer', 'ビール', 16),
-  'sake': StoreArea('sake', '日本酒', 17),
-  'sweets': StoreArea('sweets', 'お菓子', 18),
-  'kitchen': StoreArea('kitchen', '台所用品', 19),
-  'garbage': StoreArea('garbage', 'ゴミ袋', 20),
-  'egg': StoreArea('egg', '卵', 21),
-  'bread': StoreArea('bread', 'パン', 22),
-  'self_checkout': StoreArea('self_checkout', 'セルフレジ', 23),
-  'cashier': StoreArea('cashier', 'レジ', 24),
+  'start': StoreArea('start', 'スタート', 0, x: 70, y: 6),
+  'local_vegetables': StoreArea('local_vegetables', '地場野菜', 1, x: 55, y: 10),
+  'vegetables': StoreArea('vegetables', '野菜', 2, x: 86, y: 55),
+  'fruits': StoreArea('fruits', '果物', 3, x: 86, y: 30),
+  'fish': StoreArea('fish', 'お魚', 4, x: 86, y: 88),
+  'meat': StoreArea('meat', 'お肉', 5, x: 60, y: 92),
+  'tempura': StoreArea('tempura', '天ぷら', 6, x: 42, y: 92),
+  'side_dish': StoreArea('side_dish', '惣菜', 7, x: 28, y: 86),
+  'dairy': StoreArea('dairy', '乳製品', 8, x: 32, y: 64),
+  'yogurt': StoreArea('yogurt', 'ヨーグルト', 9, x: 14, y: 66),
+  'frozen': StoreArea('frozen', '冷凍食品', 10, x: 30, y: 74),
+  'drink': StoreArea('drink', '飲料水', 11, x: 46, y: 72),
+  'miso': StoreArea('miso', '味噌汁', 12, x: 58, y: 72),
+  'instant': StoreArea('instant', '即席食品', 13, x: 44, y: 76),
+  'tofu': StoreArea('tofu', '豆腐', 14, x: 68, y: 72),
+  'icecream': StoreArea('icecream', 'アイスクリーム', 15, x: 30, y: 42),
+  'beer': StoreArea('beer', 'ビール', 16, x: 42, y: 42),
+  'sake': StoreArea('sake', '日本酒', 17, x: 56, y: 42),
+  'sweets': StoreArea('sweets', 'お菓子', 18, x: 70, y: 42),
+  'kitchen': StoreArea('kitchen', '台所用品', 19, x: 80, y: 42),
+  'garbage': StoreArea('garbage', 'ゴミ袋', 20, x: 88, y: 42),
+  'egg': StoreArea('egg', '卵', 21, x: 12, y: 58),
+  'bread': StoreArea('bread', 'パン', 22, x: 12, y: 48),
+  'self_checkout': StoreArea('self_checkout', 'セルフレジ', 23, x: 18, y: 18),
+  'cashier': StoreArea('cashier', 'レジ', 24, x: 45, y: 18),
 };
 
 /// 地産地消・食育クイズつきのサンプル8品目。

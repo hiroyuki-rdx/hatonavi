@@ -38,9 +38,15 @@ module.exports = async (req, res) => {
   } else if (body.mode === 'quiz') {
     const name = String(body.name || '商品');
     const area = String(body.area || '');
+    // 子どもの年齢/学年に合わせた難易度。level(1-3)とlevelHint(指示文)を反映する。
+    // 値が無い・範囲外のときは「ふつう」相当(2)へフォールバックする。
+    const level = [1, 2, 3].includes(body.level) ? body.level : 2;
+    const levelHint = String(body.levelHint || 'やさしい日本語。すなおな4択。');
     prompt =
-      '滋賀県・琵琶湖・地産地消をテーマに、小学校低学年向けの食育クイズを1問作ってください。\n' +
-      '商品名: ' + name + '（売場: ' + area + '）。やさしい日本語（ひらがな多め）で。\n' +
+      '滋賀県・琵琶湖・地産地消をテーマに、子ども向けの食育クイズを1問作ってください。\n' +
+      '商品名: ' + name + '（売場: ' + area + '）。\n' +
+      '難易度レベル: ' + level + '。' + levelHint + '\n' +
+      'この難易度に合わせて、問題文・選択肢・解説の言葉づかいと難しさを調整してください。\n' +
       '出力は {"question":"問題文","choices":["選択肢1","選択肢2","選択肢3","選択肢4"],' +
       '"correctIndex":0,"explanation":"正解の理由"} のJSONのみ。' +
       'choicesはちょうど4つ、correctIndexは正解の番号(0-3の整数)。';

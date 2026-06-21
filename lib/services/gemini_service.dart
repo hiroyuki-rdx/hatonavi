@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models.dart';
+import 'level_service.dart';
 
 /// Gemini を Vercel Function（`/api/gemini`）経由で呼ぶサービス。
 ///
@@ -46,14 +47,28 @@ class GeminiService {
   }
 
   /// 商品のクイズを生成する。失敗・不正時は null（固定クイズへフォールバック）。
-  static Future<GeneratedQuiz?> generateQuiz(ShoppingItem item) async {
+  ///
+  /// [level] は子どもの年齢/学年に合わせた難易度（1〜3、既定は2）。
+  /// payload にレベル番号とそのレベルの指示文（levelHint）を載せ、
+  /// サーバー側のプロンプトで言葉づかい・難しさを調整する。
+  static Future<GeneratedQuiz?> generateQuiz(
+    ShoppingItem item, {
+    int level = LevelService.defaultId,
+  }) async {
     try {
+      // レベルに対応する難易度の指示文を取得（不正な id は既定レベルへ丸められる）。
+      final levelHint = LevelService.byId(level).hint;
       final resp = await http
           .post(
             _endpoint,
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(
-                {'mode': 'quiz', 'name': item.name, 'area': item.area}),
+            body: jsonEncode({
+              'mode': 'quiz',
+              'name': item.name,
+              'area': item.area,
+              'level': level,
+              'levelHint': levelHint,
+            }),
           )
           .timeout(_timeout);
       if (resp.statusCode != 200) return null;
