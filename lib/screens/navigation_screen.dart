@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../services/speech_service.dart';
 import 'compass_screen.dart';
 import 'quiz_screen.dart';
 import 'sticker_screen.dart';
@@ -38,6 +39,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   void _showHazardAlert() {
     if (!mounted) return;
+    // 画面の赤いダイアログと同時に、音声でも危険を知らせる（権限不要）。
+    SpeechService.speak(hazardAlerts[0]);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(

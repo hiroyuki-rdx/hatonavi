@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets/hatoppy_widget.dart';
 import '../services/compass_service.dart';
+import '../services/motion_service.dart';
 
 /// 移動中の「方位磁針画面」。スマホのコンパスセンサーと連携し、
 /// 次に向かう棚エリアへの方角を大きな針で示す。
@@ -33,8 +34,17 @@ class _CompassScreenState extends State<CompassScreen> {
   /// コンパスセンサーのサービス。
   final CompassService _compassService = CompassService();
 
+  /// 走行検知（歩きスマホ・走り回り防止ロック）のサービス。
+  final MotionService _motionService = MotionService();
+
   /// 方位角ストリームの購読。dispose で cancel する。
   StreamSubscription<double>? _subscription;
+
+  /// 走行検知ストリームの購読。dispose で cancel する。
+  StreamSubscription<bool>? _motionSub;
+
+  /// 走っている（激しく動いている）間 true。true の間はロック画面を被せる。
+  bool _isRunning = false;
 
   /// 一定時間センサー値が来ないときにタップ案内へ切り替えるためのタイマー。
   Timer? _waitTimer;
@@ -55,6 +65,7 @@ class _CompassScreenState extends State<CompassScreen> {
     // Android 等は権限不要でそのまま購読開始できる。
     // iOS は権限がタップ起点必須なので、来なければ後でボタンを出す。
     _subscribe();
+    _subscribeMotion();
     _waitTimer = Timer(const Duration(seconds: 3), () {
       if (mounted && !_hasHeading) setState(() => _needsTap = true);
     });
@@ -73,12 +84,25 @@ class _CompassScreenState extends State<CompassScreen> {
     });
   }
 
+  /// 走行検知ストリームの購読を（再）開始する。
+  /// センサー非対応・未許可なら何も流れないのでロックは出ない（通常進行）。
+  void _subscribeMotion() {
+    _motionSub?.cancel();
+    _motionSub = _motionService.runningStream.listen((running) {
+      if (!mounted) return;
+      setState(() => _isRunning = running);
+    });
+  }
+
   /// ユーザーのタップ起点で権限を要求し、購読をやり直す。
   /// iOS Safari はこの「タップ起点」でしかセンサー許可を出せない。
   Future<void> _enableByTap() async {
+    // コンパスと走行検知の両方を、ユーザー操作起点でまとめて許可要求する。
     await _compassService.requestPermission();
+    await _motionService.requestPermission();
     if (!mounted) return;
     _subscribe();
+    _subscribeMotion();
     // しばらく待っても来なければ、もう一度案内を出す。
     _waitTimer?.cancel();
     _waitTimer = Timer(const Duration(seconds: 3), () {
@@ -91,6 +115,7 @@ class _CompassScreenState extends State<CompassScreen> {
   void dispose() {
     _waitTimer?.cancel();
     _subscription?.cancel();
+    _motionSub?.cancel();
     super.dispose();
   }
 
@@ -99,39 +124,85 @@ class _CompassScreenState extends State<CompassScreen> {
     // NavigationScreen の Scaffold 内に埋め込んで使うため、ここでは
     // Scaffold を持たず Column のみを返す（Scaffold 二重ネスト回避）。
     // 到着ボタンと警告バーが常に画面内に収まるレイアウトにしている。
-    return Column(
+    // 走行検知中は上から赤いロック画面を被せて「とまって」と促す。
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: HatoppyTalk(
-            message: 'つぎは「${widget.targetAreaName}」へ\nむかおう！',
-          ),
-        ),
-        Expanded(
-          child: Center(
-            child: SingleChildScrollView(
-              child: _CompassDial(
-                heading: _heading,
-                hasHeading: _hasHeading,
-                needsTap: _needsTap,
-                onEnable: _enableByTap,
+        Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: HatoppyTalk(
+                message: 'つぎは「${widget.targetAreaName}」へ\nむかおう！',
               ),
             ),
-          ),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  child: _CompassDial(
+                    heading: _heading,
+                    hasHeading: _hasHeading,
+                    needsTap: _needsTap,
+                    onEnable: _enableByTap,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: widget.onArrived,
+                  child: const Text('ここに とうちゃく！'),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const _SlowWalkBar(),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: widget.onArrived,
-              child: const Text('ここに とうちゃく！'),
+        if (_isRunning) const Positioned.fill(child: _RunLockOverlay()),
+      ],
+    );
+  }
+}
+
+/// 走行検知中に全面を覆う「とまって！」ロック画面。
+/// 企画書 4-◆安全性／審査員アドバイス（速度検知でロック）に対応。
+class _RunLockOverlay extends StatelessWidget {
+  const _RunLockOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.danger.withOpacity(0.96),
+      alignment: Alignment.center,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.pan_tool_rounded, color: Colors.white, size: 72),
+          SizedBox(height: 20),
+          Text(
+            'とまって！',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              fontWeight: FontWeight.w900,
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        const _SlowWalkBar(),
-      ],
+          SizedBox(height: 8),
+          Text(
+            'まえをみて\nゆっくりあるこうね',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              height: 1.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
