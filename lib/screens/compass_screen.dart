@@ -22,6 +22,12 @@ class CompassScreen extends StatefulWidget {
   /// null のときは方角が計算できない（座標欠落等）ので、従来通り heading をそのまま表示する。
   final double? targetBearingDeg;
 
+  /// 次の売り場までの「距離の目安」を子ども向けに伝えるひらがなヒント
+  /// （例：「すぐ ちかく！」「ちょっと あるくよ」「ずっと むこうだよ！」）。
+  /// 矢印だけだと不安になる遠い目的地を演出的に和らげるための表示。
+  /// null/空のときは何も表示しない（graceful）。※経路計算ではなく距離の目安。
+  final String? distanceHint;
+
   /// 「ここに とうちゃく！」を押したときのコールバック。
   final VoidCallback onArrived;
 
@@ -29,6 +35,7 @@ class CompassScreen extends StatefulWidget {
     super.key,
     required this.targetAreaName,
     this.targetBearingDeg,
+    this.distanceHint,
     required this.onArrived,
   });
 
@@ -206,8 +213,19 @@ class _CompassScreenState extends State<CompassScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: HatoppyTalk(
-                message: 'つぎは「${widget.targetAreaName}」へ\nむかおう！',
+              child: Column(
+                children: [
+                  HatoppyTalk(
+                    message: 'つぎは「${widget.targetAreaName}」へ\nむかおう！',
+                  ),
+                  // 距離の目安ヒント（あれば）。矢印だけで不安にならないよう小さく添える。
+                  // null/空のときは何も出さない（graceful）。
+                  if (widget.distanceHint != null &&
+                      widget.distanceHint!.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    _DistanceHintChip(text: widget.distanceHint!),
+                  ],
+                ],
               ),
             ),
             Expanded(
@@ -401,6 +419,33 @@ class _CompassDial extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// はとっぴーのメッセージの下に小さく添える「距離の目安」ヒント。
+/// 子ども向けのひらがな文（「すぐ ちかく！」等）を、やさしい丸いチップで表示する。
+/// ※ 経路（最短/最適ルート）ではなく、あくまで距離感をやわらかく伝えるための演出。
+class _DistanceHintChip extends StatelessWidget {
+  final String text;
+  const _DistanceHintChip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.accentYellow,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        '🚶 $text',
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+          color: AppColors.textDark,
+        ),
+      ),
     );
   }
 }

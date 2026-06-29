@@ -4,8 +4,9 @@
 // フロントは同一オリジンの /api/gemini を叩くだけ。CORS・キー管理をここで吸収する。
 //
 // mode:
-//   "order" … 買い物リスト(items)を店内を効率よく回れる巡回順に並べ替え → {"order":[id,...]}
-//   "quiz"  … 商品名から食育クイズを1問生成 → {question, choices[4], correctIndex, explanation}
+//   "order"   … 買い物リスト(items)を店内を効率よく回れる巡回順に並べ替え → {"order":[id,...]}
+//   "quiz"    … 商品名から食育クイズを1問生成 → {question, choices[4], correctIndex, explanation}
+//   "summary" … 今日学んだ商品(name/area/explanation)から保護者向けサマリを1つ生成 → {"summary":"..."}
 //
 // 失敗時はエラーを返し、フロント側が固定データ(models.dart)にフォールバックする
 // （デモがネットワークやキー未設定で止まらない設計）。
@@ -59,6 +60,32 @@ module.exports = async (req, res) => {
       '出力は {"question":"問題文","choices":["選択肢1","選択肢2","選択肢3","選択肢4"],' +
       '"correctIndex":0,"explanation":"正解の理由（事実に基づき短く）"} のJSONのみ。' +
       'choicesはちょうど4つ・重複なし、correctIndexは正解の番号(0-3の整数)。';
+  } else if (body.mode === 'summary') {
+    // 完了画面の「おうちの人へ：きょうのまなび」用サマリ。
+    // 子どもが今日クイズで学んだ商品リスト(name/area/explanation)だけを根拠にする。
+    const learned = Array.isArray(body.items) ? body.items : [];
+    // 各項目を「正しい事実」つきで列挙。explanation がグラウンディング根拠。
+    const lines = learned
+      .map((it) => {
+        const name = String((it && it.name) || '商品');
+        const area = String((it && it.area) || '');
+        const fact = String((it && it.explanation) || '');
+        return '・' + name + '（売場: ' + area + '）／学んだこと: ' + fact;
+      })
+      .join('\n');
+    // 事実ベースなので低めにして創作（暴走）を抑える。order(0.7)より低く、quiz(0.3)より少しだけ自由度を持たせる。
+    temperature = 0.4;
+    prompt =
+      'あなたは子どもの買い物おつかいに寄りそう、やさしいアシスタントです。\n' +
+      '次に挙げる「今日子どもがクイズで学んだこと」だけを根拠に、保護者（おうちの人）向けの温かいふりかえりメッセージを書いてください。\n' +
+      '今日学んだこと:\n' + lines + '\n' +
+      'ルール:\n' +
+      '・上の「学んだこと」に書かれていないことは書かない（推測・創作、むずかしい固有名詞や数値の断定は禁止）。\n' +
+      '・断定的なウソや誇張をしない。事実に忠実に、やわらかい言葉でまとめる。\n' +
+      '・子どもをほめ、家庭での会話のきっかけになるような前向きな締めにする。\n' +
+      '・全体で2〜3文の、ひとつづきの自然な日本語にする（箇条書きにしない）。\n' +
+      '・「おうちの人へ」などの宛名や見出しは付けず、本文だけを書く。\n' +
+      '出力は {"summary":"本文"} のJSONのみ。';
   } else {
     return res.status(400).json({ error: 'bad mode' });
   }

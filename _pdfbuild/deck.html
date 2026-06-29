@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<title>鳩ナビ おつかいクエスト ― 発表資料</title>
+<style>
+:root{
+  --green:#2E7D5B; --green2:#1F5A40; --orange:#FF9B42; --yellow:#FFD166;
+  --beige:#FFF6E9; --ink:#2b2b2b; --muted:#6b6256; --line:#e3dac9;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{
+  font-family:"Yu Gothic","YuGothic","Meiryo","Hiragino Kaku Gothic ProN",sans-serif;
+  color:var(--ink); counter-reset:s;
+}
+@page{ size:A4 landscape; margin:0; }
+.slide{
+  position:relative; width:297mm; height:210mm; overflow:hidden;
+  padding:16mm 18mm 18mm; page-break-after:always;
+  display:flex; flex-direction:column; background:#fff;
+}
+.slide:last-of-type{ page-break-after:avoid; }
+.slide::after{ counter-increment:s; content:counter(s,decimal-leading-zero);
+  position:absolute; right:12mm; bottom:8mm; font-size:11pt; color:var(--muted); }
+.brandfoot{ position:absolute; left:18mm; bottom:8mm; font-size:10pt; color:var(--muted);
+  letter-spacing:.04em; }
+.brandfoot b{ color:var(--green2); }
+
+/* kicker + title */
+.kicker{ display:inline-block; font-size:12pt; font-weight:800; letter-spacing:.14em;
+  color:var(--orange); margin-bottom:6px; }
+h1.title{ font-size:30pt; color:var(--green2); line-height:1.25; }
+h1.title small{ display:block; font-size:15pt; color:var(--muted); font-weight:600; margin-top:8px; }
+.bar{ height:7px; width:120px; background:var(--green); border-radius:4px; margin:10px 0 14px; }
+
+/* cover */
+.cover{ background:linear-gradient(135deg,var(--green2),var(--green)); color:#fff;
+  align-items:center; justify-content:center; text-align:center; }
+.cover .dove{ font-size:74pt; line-height:1; filter:drop-shadow(0 6px 10px rgba(0,0,0,.25)); }
+.cover h1{ font-size:40pt; margin-top:6px; letter-spacing:.02em; }
+.cover .tag{ font-size:19pt; margin-top:14px; color:var(--yellow); font-weight:800; }
+.cover .desc{ font-size:13.5pt; margin-top:16px; opacity:.95; }
+.cover .meta{ margin-top:30px; font-size:12.5pt; opacity:.95; }
+.cover .url{ margin-top:8px; font-size:13pt; background:rgba(255,255,255,.16);
+  padding:7px 16px; border-radius:30px; }
+.cover::after{ color:rgba(255,255,255,.7); }
+
+/* content blocks */
+.body{ flex:1; display:flex; flex-direction:column; justify-content:center; }
+.lead{ font-size:18pt; font-weight:800; color:var(--ink); margin-bottom:14px; line-height:1.4; }
+ul.points{ list-style:none; }
+ul.points li{ font-size:13.5pt; line-height:1.7; padding-left:26px; position:relative; margin:7px 0; }
+ul.points li::before{ content:"▶"; color:var(--green); position:absolute; left:0; font-size:10pt; top:5px; }
+.muted{ color:var(--muted); }
+strong{ color:#9a2b00; }
+
+/* cards */
+.cards{ display:grid; gap:14px; }
+.cards.c3{ grid-template-columns:repeat(3,1fr); }
+.cards.c2{ grid-template-columns:repeat(2,1fr); }
+.card{ background:var(--beige); border:1px solid var(--line); border-left:7px solid var(--green);
+  border-radius:12px; padding:14px 16px; }
+.card .ico{ font-size:24pt; }
+.card h3{ font-size:14pt; color:var(--green2); margin:6px 0 4px; }
+.card p{ font-size:11.5pt; color:var(--muted); line-height:1.55; }
+
+/* steps */
+.steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:6px; }
+.step{ text-align:center; }
+.step .n{ width:40px; height:40px; border-radius:50%; background:var(--orange); color:#fff;
+  font-weight:800; font-size:16pt; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; }
+.step .e{ font-size:26pt; }
+.step h4{ font-size:13pt; color:var(--green2); margin-top:4px; }
+.step p{ font-size:10.5pt; color:var(--muted); margin-top:2px; }
+
+/* two col */
+.two{ display:grid; grid-template-columns:1fr 1fr; gap:22px; align-items:start; }
+.panel{ border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.panel.ai{ background:#eef6f1; border-left:7px solid var(--green); }
+.panel.local{ background:#fff6ec; border-left:7px solid var(--orange); }
+.panel h3{ font-size:14pt; margin-bottom:8px; color:var(--green2); }
+.panel ul{ list-style:none; }
+.panel li{ font-size:12.5pt; margin:6px 0; padding-left:20px; position:relative; }
+.panel li::before{ content:"・"; position:absolute; left:2px; color:var(--green); }
+
+/* tables */
+table{ border-collapse:collapse; width:100%; font-size:12pt; }
+th,td{ border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top; }
+th{ background:var(--green); color:#fff; }
+tr:nth-child(even) td{ background:#faf7f0; }
+.note{ margin-top:12px; background:var(--beige); border:1px dashed var(--line);
+  border-radius:10px; padding:10px 14px; font-size:11.5pt; color:var(--muted); }
+.note b{ color:var(--green2); }
+
+/* diagram */
+.diagram{ flex:1; display:flex; align-items:center; justify-content:center; margin-top:4px; }
+.mermaid{ width:100%; text-align:center; }
+.mermaid svg{ max-width:100%; max-height:128mm; height:auto; }
+
+.kpi{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.kpi .k{ text-align:center; background:var(--beige); border:1px solid var(--line);
+  border-radius:12px; padding:16px; }
+.kpi .k .big{ font-size:18pt; font-weight:800; color:var(--green2); }
+.kpi .k .lbl{ font-size:11.5pt; color:var(--muted); margin-top:6px; line-height:1.5; }
+
+.ba{ display:grid; grid-template-columns:1fr auto 1fr; gap:16px; align-items:center; }
+.ba .box{ border-radius:12px; padding:14px 16px; font-size:12.5pt; line-height:1.6; }
+.ba .before{ background:#fdecec; border:1px solid #f3c9c9; }
+.ba .after{ background:#eaf6ef; border:1px solid #bfe3cd; }
+.ba .arrow{ font-size:26pt; color:var(--green); }
+.ba h4{ font-size:12pt; margin-bottom:6px; }
+</style>
+<script src="mermaid.min.js"></script>
+</head><body>
+
+<!-- 01 COVER -->
+<section class="slide cover">
+  <div class="dove">🕊️</div>
+  <h1>鳩ナビ おつかいクエスト</h1>
+  <div class="tag">親子の買い物を、学びの冒険に。</div>
+  <div class="desc">スーパーでの買い物を「知育エンタメ」に変える Flutter Web アプリ</div>
+  <div class="meta">平和堂 × ソフトバンク × 龍谷大学 ハッカソン</div>
+  <div class="url">🌐 https://hatonavi.vercel.app</div>
+</section>
+
+<!-- 02 PROBLEM -->
+<section class="slide">
+  <span class="kicker">PROBLEM ／ 課題</span>
+  <h1 class="title">スーパーの買い物には、三者三様の悩みがある</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="cards c3">
+      <div class="card"><div class="ico">😣</div><h3>親</h3>
+        <p>買い物中に子どもがぐずる・走り回る。スマホで動画を見せることへの罪悪感。買い物に集中できない。</p></div>
+      <div class="card"><div class="ico">🙍</div><h3>子ども</h3>
+        <p>買い物に主体的に関われず退屈。「ただ連れてこられているだけ」になりがち。</p></div>
+      <div class="card"><div class="ico">🏬</div><h3>店（平和堂）</h3>
+        <p>少子高齢化のなか、子育て世代の来店動機をつくり、ファンになってもらいたい。</p></div>
+    </div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 03 SOLUTION -->
+<section class="slide">
+  <span class="kicker">SOLUTION ／ 提案</span>
+  <h1 class="title">買い物そのものを“お手伝いの冒険”に変える</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="steps">
+      <div class="step"><div class="n">1</div><div class="e">🔎</div><h4>探す</h4><p>売り場をまわって商品を見つける</p></div>
+      <div class="step"><div class="n">2</div><div class="e">📷</div><h4>みつけた！</h4><p>バーコードをスキャンして記録</p></div>
+      <div class="step"><div class="n">3</div><div class="e">❓</div><h4>食育クイズ</h4><p>その商品にまつわる学び</p></div>
+      <div class="step"><div class="n">4</div><div class="e">🎖️</div><h4>集める</h4><p>ポイント・バッジ・シール</p></div>
+    </div>
+    <div class="note" style="margin-top:22px;"><b>Flutter Web</b>で開発。アプリのインストール不要、URLを開くだけでスマホのブラウザで動く。</div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 04 EXPERIENCE FLOW -->
+<section class="slide">
+  <span class="kicker">USER FLOW ／ 体験の流れ</span>
+  <h1 class="title">スタートからゴールまで、迷わず一気通貫</h1>
+  <div class="bar"></div>
+  <div class="diagram">
+    <div class="mermaid">
+flowchart LR
+  Home["🏠 ホーム<br/>難易度選択"] --> List["🛒 リスト・順番"] --> Pledge["🤝 安全のお約束"] --> Nav["🧭 ナビ＋コンパス"]
+  Nav -->|"到着ごと"| Quiz["❓ スキャン→クイズ"]
+  Quiz -->|"正誤を返す"| Nav
+  Nav -->|"全部完了"| Sticker["🎟️ 完了・図鑑"] --> Point["⭐ ポイント・交換"]
+  Nav -->|"🛒途中追加"| Quiz
+    </div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 05 FEATURES -->
+<section class="slide">
+  <span class="kicker">FEATURES ／ 主要機能</span>
+  <h1 class="title">「楽しい・学べる・安全」を支える6機能</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="cards c3">
+      <div class="card"><div class="ico">🧠</div><h3>AI 巡回順の提案</h3><p>選んだ商品を効率よく回れる「順番」をGeminiが提案（検証つき）。</p></div>
+      <div class="card"><div class="ico">❓</div><h3>AI 食育クイズ生成</h3><p>商品に合わせて出題。年齢3段階（未就学/小学生/高学年）で難易度調整。</p></div>
+      <div class="card"><div class="ico">🧭</div><h3>方位ナビ＋較正</h3><p>方位センサーで次の売り場の方角を提示。ワンタップで「むきをあわせる」。</p></div>
+      <div class="card"><div class="ico">🛑</div><h3>走行ロック＋危険音声</h3><p>走り出しを検知して画面ロック。危険箇所では音声で注意。</p></div>
+      <div class="card"><div class="ico">📷</div><h3>実カメラスキャン</h3><p>バーコードを読んで「みつけた！」を演出（購入処理ではない）。</p></div>
+      <div class="card"><div class="ico">🎟️</div><h3>ポイント・シール交換</h3><p>スタンプを貯めてシール引換券へ。ご当地バッジ図鑑も。</p></div>
+    </div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 06 ARCHITECTURE -->
+<section class="slide">
+  <span class="kicker">ARCHITECTURE ／ 全体構成</span>
+  <h1 class="title">層で分けた、見通しのよい構成</h1>
+  <div class="bar"></div>
+  <div class="diagram">
+    <div class="mermaid">
+flowchart TB
+  subgraph Browser["スマホのブラウザ（Flutter Web）"]
+    UI["画面層 / UI（8画面）"]
+    SVC["サービス層（AI・ポイント・方角・走行・音声）"]
+    MODEL["データ層（商品・売り場の固定データ）"]
+    WEBAPI["ブラウザWeb API（方角・加速度・音声・カメラ）"]
+  end
+  subgraph Cloud["クラウド"]
+    FUNC["Vercel Function /api/gemini<br/>(APIキーを秘匿する中継)"]
+    GEMINI["Google Gemini"]
+  end
+  UI --> SVC --> MODEL
+  SVC -->|"HTTP"| FUNC --> GEMINI
+  SVC -.->|"端末機能"| WEBAPI
+    </div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 07 AI ROLE -->
+<section class="slide">
+  <span class="kicker">AI DESIGN ／ AIの使い方①</span>
+  <h1 class="title">AIには“得意なことだけ”任せる</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="two">
+      <div class="panel ai"><h3>🧠 AI（Gemini）がやる ＝ 2つだけ</h3>
+        <ul><li>巡回順の提案（回る順番の並べ替え）</li><li>食育クイズの生成（正しい事実をもとに1問）</li></ul></div>
+      <div class="panel local"><h3>⚙️ 端末のプログラムが確実にやる</h3>
+        <ul><li>画面の進行・遷移の管理</li><li>方角の計算・コンパス表示</li><li>走行検知・危険の通知（安全）</li><li>スキャン・ポイント計算・保存</li></ul></div>
+    </div>
+    <div class="note"><b>方針：</b>間違えると危険なこと（方角・安全・進行・お金）はAIに任せない。AIには検証・やり直しがきく仕事だけを任せる。</div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 08 HALLUCINATION -->
+<section class="slide">
+  <span class="kicker">AI DESIGN ／ AIの使い方②</span>
+  <h1 class="title">ハルシネーション対策＝4層の多層防御</h1>
+  <div class="bar"></div>
+  <div class="diagram">
+    <div class="mermaid">
+flowchart LR
+  L1["① 事実グラウンディング<br/>手書きの『正しい事実』だけを根拠に出題"]
+  L2["② 生成の抑制<br/>temperature 0.3＋厳格なプロンプト"]
+  L3["③ 受信後の検証<br/>4択ちょうど/重複なし/正解番号/空でない"]
+  L4["④ フォールバック<br/>不正なら固定クイズに差し替え"]
+  L1 --> L2 --> L3 --> L4
+  L3 -->|"検証OK"| OK["AI生成クイズを表示"]
+    </div>
+  </div>
+  <div class="note"><b>結果：</b>子どもには「検証を通ったAI生成クイズ」か「手書きの固定クイズ」しか表示されない＝<strong>誤クイズを見せない</strong>。</div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 09 SEQUENCE -->
+<section class="slide">
+  <span class="kicker">HOW IT WORKS ／ クイズ生成の流れ</span>
+  <h1 class="title">スキャンから出題までの裏側</h1>
+  <div class="bar"></div>
+  <div class="diagram">
+    <div class="mermaid">
+sequenceDiagram
+  participant U as 子ども
+  participant Q as クイズ画面
+  participant G as GeminiService
+  participant F as Vercel Function
+  participant AI as Gemini
+  U->>Q: 商品をスキャン
+  Q->>G: クイズ生成を依頼(難易度つき)
+  G->>F: POST(正しい事実・難易度・商品名)
+  F->>AI: 指示文(温度0.3 / JSONで返答)
+  AI-->>F: クイズのJSON
+  F-->>G: question / choices / correctIndex / explanation
+  G->>G: 検証(4択・重複・正解番号)
+  alt 検証OK
+    G-->>Q: AI生成クイズ
+  else 失敗・不正・8秒超過
+    G-->>Q: null → 固定クイズへ
+  end
+  Q->>U: 出題
+    </div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 10 SAFETY -->
+<section class="slide">
+  <span class="kicker">SAFETY ／ 安全への配慮</span>
+  <h1 class="title">「子どもが安全に使える」を最優先</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="cards c3">
+      <div class="card"><div class="ico">🛑</div><h3>走行ロック</h3><p>加速度センサーで走りを検知し、画面を赤くロック＋音声で「とまって！」。</p></div>
+      <div class="card"><div class="ico">🔊</div><h3>危険箇所アラート</h3><p>すべりやすい床・交差点で音声＋ポップアップ注意。</p></div>
+      <div class="card"><div class="ico">🤝</div><h3>安全のお約束</h3><p>開始前に「走らない・前を見る・大人のそばに」を確認。</p></div>
+      <div class="card"><div class="ico">👣</div><h3>逐次提示</h3><p>次の1売り場だけを表示。一気に走り出させない。</p></div>
+      <div class="card"><div class="ico">📍</div><h3>測位ハードなし</h3><p>GPS/BLEを使わず、方位センサー＋固定マップ＋較正で実用。</p></div>
+      <div class="card"><div class="ico">🔒</div><h3>プライバシー</h3><p>子どもの位置情報・カメラ映像をサーバへ送らない。</p></div>
+    </div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 11 三方よし -->
+<section class="slide">
+  <span class="kicker">VALUE ／ 提供価値</span>
+  <h1 class="title">関わる全員にメリットがある「三方よし」</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="kpi">
+      <div class="k"><div class="big">😊 親</div><div class="lbl">子どもが能動的に参加。買い物に集中でき、動画頼りの罪悪感から解放。</div></div>
+      <div class="k"><div class="big">🌱 子ども</div><div class="lbl">クイズ・バッジ・シールで学びと達成感。買い物が「自分ごと」に。</div></div>
+      <div class="k"><div class="big">🏬 店</div><div class="lbl">「また行きたい店」に。子育て世代のファン化・来店動機につながる。</div></div>
+    </div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 12 運用パターン -->
+<section class="slide">
+  <span class="kicker">DEPLOYMENT ／ 運用イメージ</span>
+  <h1 class="title">現場に合わせた3つの運用パターン</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <table>
+      <tr><th style="width:10%">型</th><th style="width:55%">内容</th><th>位置づけ</th></tr>
+      <tr><td><b>A</b></td><td>買い物アプリ内に子ども向けモードとして統合</td><td>理想・将来構想</td></tr>
+      <tr><td><b>B</b></td><td>店舗の貸出端末に鳩ナビを搭載（親は会計、子は鳩ナビの2台運用）</td><td><b>現実的な実運用候補</b></td></tr>
+      <tr><td><b>C</b></td><td>親のスマホで買い物の前後を補助</td><td>現デモに近い</td></tr>
+    </table>
+    <div class="note"><b>会計の役割分担：</b>会計・精算は鳩ナビでは行わない。スキャンは決済ではなく「みつけた！」のゲームの合図。</div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 13 位置づけ・将来 -->
+<section class="slide">
+  <span class="kicker">POSITIONING ／ 位置づけと将来</span>
+  <h1 class="title">いまは独立デモ、将来は買い物体験へ接続</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="panel" style="background:#eef6f1;border-left:7px solid var(--green);margin-bottom:16px;">
+      <p style="font-size:13.5pt;line-height:1.7;">鳩ナビは既存のセルフ会計サービスを<strong>置き換えるものではなく</strong>、将来的に店舗の買い物体験と<strong>接続可能な親子向け体験プロトタイプ</strong>。
+      <b>現時点は独立した Web デモ（未接続）</b>として、最初から最後まで実機で動作する。</p>
+    </div>
+    <ul class="points">
+      <li>将来構想：店舗プラットフォーム／パートナー向けAPIとの連携で、買い物体験の一部として組み込む（構想段階・未実装）。</li>
+      <li>固定データ（商品・売り場・クイズ）は、本番の商品マスタ／クイズDB／コード連携に差し替え可能な設計。</li>
+    </ul>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 14 中間評価対応 -->
+<section class="slide">
+  <span class="kicker">PROGRESS ／ 中間評価への対応</span>
+  <h1 class="title">「構想止まり」を「動くデモ」で乗り越えた</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="ba">
+      <div class="box before"><h4>⚠️ 指摘された弱点</h4>
+        動くデモがなく、未来形で語ってしまっていた／AIのハルシネーション懸念／安全面の不安</div>
+      <div class="arrow">➜</div>
+      <div class="box after"><h4>✅ 対応・改善</h4>
+        Geminiを実稼働させ一気通貫で動作／多層防御でハルシ対策を明示／走行ロック・危険音声など安全機能を追加</div>
+    </div>
+    <div class="note" style="margin-top:18px;">AI活用は中間評価でも高評価。残る課題（実店舗テスト・収益/スケール）は次のアクションで補強する。</div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 15 技術スタック&デプロイ -->
+<section class="slide">
+  <span class="kicker">TECH ／ 技術スタックと公開</span>
+  <h1 class="title">少人数でも回る、軽量な技術構成</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="two">
+      <div>
+        <ul class="points">
+          <li><b>フロント：</b>Flutter Web（Dart / Material 3）</li>
+          <li><b>状態管理：</b>標準の StatefulWidget＋setState</li>
+          <li><b>保存：</b>shared_preferences（端末ローカル）</li>
+          <li><b>カメラ：</b>mobile_scanner</li>
+          <li><b>センサー/音声：</b>ブラウザWeb API（方角・加速度・音声合成）</li>
+          <li><b>AI：</b>Google Gemini（gemini-2.5-flash）</li>
+          <li><b>基盤：</b>Vercel（Function＋ホスティング）</li>
+        </ul>
+      </div>
+      <div class="diagram" style="flex:0;">
+        <div class="mermaid">
+flowchart TB
+  DEV["開発者"] -->|"git push"| GH["GitHub"]
+  GH -->|"自動"| BUILD["Vercelがビルド<br/>(flutter build web)"]
+  BUILD --> LIVE["公開<br/>hatonavi.vercel.app"]
+  GH --> FN["/api/gemini も公開"] --> LIVE
+        </div>
+      </div>
+    </div>
+    <div class="note">push するだけで自動ビルド＆公開（CI/CD）。APIキーはコードに書かず、サーバの環境変数で秘匿。</div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 16 まとめ -->
+<section class="slide">
+  <span class="kicker">SUMMARY ／ まとめ</span>
+  <h1 class="title">この開発を貫く4つの設計原則</h1>
+  <div class="bar"></div>
+  <div class="body">
+    <div class="cards c2">
+      <div class="card"><h3>① 関心の分離</h3><p>画面・ロジック・データ・外部を層で分け、直す場所を局所化。</p></div>
+      <div class="card"><h3>② 止まらない作り（フォールバック）</h3><p>AI・ネット・センサーが失敗しても、固定データ等へ自動で切替。</p></div>
+      <div class="card"><h3>③ AIは得意分野だけ＋検証</h3><p>危険なことは自前で確実に。AIは多層防御で安全に活用。</p></div>
+      <div class="card"><h3>④ 秘密はサーバ・公開は自動</h3><p>APIキーは環境変数で秘匿、デプロイはCI/CDで自動化。</p></div>
+    </div>
+    <div class="note" style="margin-top:16px;"><b>これから：</b>実店舗での親子デモ動画の撮影／方位ナビのマップ基準化／「きょうのまなび」保護者サマリ。</div>
+  </div>
+  <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
+</section>
+
+<!-- 17 CLOSING -->
+<section class="slide cover">
+  <div class="dove">🕊️</div>
+  <h1 style="font-size:34pt;">買い物が、いちばん楽しい学びになる。</h1>
+  <div class="tag" style="margin-top:18px;">鳩ナビ おつかいクエスト</div>
+  <div class="url" style="margin-top:22px;">🌐 https://hatonavi.vercel.app</div>
+  <div class="meta">ご清聴ありがとうございました</div>
+</section>
+
+<script>
+mermaid.initialize({ startOnLoad:false, securityLevel:'loose', theme:'base',
+  themeVariables:{
+    fontFamily:'"Yu Gothic","Meiryo",sans-serif', fontSize:'15px',
+    primaryColor:'#FFF6E9', primaryBorderColor:'#2E7D5B', primaryTextColor:'#2b2b2b',
+    lineColor:'#1F5A40', clusterBkg:'#f3efe6', clusterBorder:'#cbbfa6'
+  },
+  flowchart:{ htmlLabels:true, useMaxWidth:true, nodeSpacing:40, rankSpacing:46 },
+  sequence:{ useMaxWidth:true, mirrorActors:false }
+});
+mermaid.run({ querySelector:'.mermaid' }).then(function(){
+  document.title='READY'; window.__ready=true;
+}).catch(function(e){ console.error(e); document.title='READY'; window.__ready=true; });
+</script>
+</body></html>

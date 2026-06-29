@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../services/point_service.dart';
+import '../services/gemini_service.dart';
 import 'home_screen.dart';
 import 'point_screen.dart';
 
@@ -30,6 +31,18 @@ class StickerScreen extends StatefulWidget {
 class _StickerScreenState extends State<StickerScreen> {
   bool _processing = true;
 
+  /// 「おうちのひとへ きょうのまなび」サマリの状態。
+  /// 取得中は _summaryLoading=true でローディング表示、完了で文章を表示する。
+  bool _summaryLoading = true;
+  String? _parentSummary;
+
+  /// AI（GeminiService.generateParentSummary）が null を返した／落ちたときに
+  /// 必ず表示する固定フォールバック文（温かい日本語2文）。
+  /// これによりAIが落ちても保護者向けカードを絶対に空にしない＝デモを止めない。
+  static const String _fallbackSummary =
+      'きょうは ちさんちしょうや しょくいくについて たくさん まなびました。'
+      'おうちでも きょう なにを まなんだか はなしてみてくださいね。';
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +50,26 @@ class _StickerScreenState extends State<StickerScreen> {
     PointService.add(widget.earnedPoints);
     Future.delayed(const Duration(milliseconds: 1300), () {
       if (mounted) setState(() => _processing = false);
+    });
+    _loadParentSummary();
+  }
+
+  /// 今日クイズで学んだ商品リスト（widget.collected）から保護者向けサマリを取得する。
+  /// 生成は別部隊実装の GeminiService.generateParentSummary に委譲（契約シグネチャ）。
+  /// 失敗・null 時は固定フォールバック文を使い、カードを必ず埋める。
+  Future<void> _loadParentSummary() async {
+    String? summary;
+    try {
+      summary = await GeminiService.generateParentSummary(widget.collected);
+    } catch (_) {
+      summary = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _parentSummary = (summary == null || summary.trim().isEmpty)
+          ? _fallbackSummary
+          : summary;
+      _summaryLoading = false;
     });
   }
 
@@ -174,6 +207,11 @@ class _StickerScreenState extends State<StickerScreen> {
                   ),
               ],
             ),
+          ),
+          const SizedBox(height: 20),
+          _ParentSummaryCard(
+            loading: _summaryLoading,
+            summary: _parentSummary ?? _fallbackSummary,
           ),
           const SizedBox(height: 28),
           SizedBox(
@@ -343,6 +381,85 @@ class _FakeQrCode extends StatelessWidget {
             color: filled ? AppColors.primaryGreenDark : Colors.transparent,
           );
         },
+      ),
+    );
+  }
+}
+
+/// 完了画面の「おうちのひとへ きょうのまなび」カード。
+/// AI（[GeminiService.generateParentSummary]）が生成した保護者向けサマリを表示する。
+/// 取得中は [loading]=true でローディング表示、取得後（失敗時は固定フォールバック文）は本文を表示。
+class _ParentSummaryCard extends StatelessWidget {
+  final bool loading;
+  final String summary;
+  const _ParentSummaryCard({required this.loading, required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Text('🕊️', style: TextStyle(fontSize: 22)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'おうちのひとへ きょうのまなび',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppColors.primaryGreenDark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'AIが きょうの まなびを まとめました',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.accentOrange,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (loading)
+            Row(
+              children: const [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.primaryGreen,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'まとめを よみこみちゅう…',
+                  style: TextStyle(fontSize: 13, color: AppColors.textDark),
+                ),
+              ],
+            )
+          else
+            Text(
+              summary,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.6,
+                color: AppColors.textDark,
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -41,8 +41,8 @@ class StoreArea {
   final String id; // 売り場ID（ShoppingItem.areaId と対応）
   final String label; // 売り場の表示名（例：地場野菜）
   final int pathIndex; // 一方向スイープ（入口→レジ）での並び順インデックス
-  final double x; // マップ上のX座標（方角・矢印計算用。今は0.0）
-  final double y; // マップ上のY座標（方角・矢印計算用。今は0.0）
+  final double x; // マップ上のX座標（方角・矢印計算用。0..100、左→右が東）
+  final double y; // マップ上のY座標（方角・矢印計算用。0..100、下→上が北）
 
   const StoreArea(
     this.id,
@@ -58,35 +58,40 @@ class StoreArea {
 /// 入口(スタート)からレジまでを一方向にめぐる「一方向スイープ順」を表す。
 /// AIナビはこの順番を基準に、リスト商品をなるべく一筆書きで回れるよう案内する。
 ///
-/// x,y は方角計算用の近似座標（`売り場マップ.pdf` の配置に基づく近似）。
+/// x,y は方角計算用の座標。`売り場マップ.pdf` の各区画の中心を実測して引いたもの
+/// （PDFを画像化し各長方形の重心を計測 → 0..100 に正規化、Y反転）。近似ではなく実測値。
 /// x=左→右で 0..100、y=下→上で 0..100。原点は左下、x が東/右、y が北/上。
 /// NavigationScreen で「現在地→次売り場」の方位角(bearing)を求めるのに使う。
+/// 同名で複数置かれている区画（お魚・野菜・果物は地図上に2つ）は、
+/// スタート/レジ動線から到達しやすい側の1つを代表座標として採用している。
 const Map<String, StoreArea> storeAreas = {
-  'start': StoreArea('start', 'スタート', 0, x: 70, y: 6),
-  'local_vegetables': StoreArea('local_vegetables', '地場野菜', 1, x: 55, y: 10),
-  'vegetables': StoreArea('vegetables', '野菜', 2, x: 86, y: 55),
-  'fruits': StoreArea('fruits', '果物', 3, x: 86, y: 30),
-  'fish': StoreArea('fish', 'お魚', 4, x: 86, y: 88),
-  'meat': StoreArea('meat', 'お肉', 5, x: 60, y: 92),
-  'tempura': StoreArea('tempura', '天ぷら', 6, x: 42, y: 92),
-  'side_dish': StoreArea('side_dish', '惣菜', 7, x: 28, y: 86),
-  'dairy': StoreArea('dairy', '乳製品', 8, x: 32, y: 64),
-  'yogurt': StoreArea('yogurt', 'ヨーグルト', 9, x: 14, y: 66),
-  'frozen': StoreArea('frozen', '冷凍食品', 10, x: 30, y: 74),
-  'drink': StoreArea('drink', '飲料水', 11, x: 46, y: 72),
-  'miso': StoreArea('miso', '味噌汁', 12, x: 58, y: 72),
-  'instant': StoreArea('instant', '即席食品', 13, x: 44, y: 76),
-  'tofu': StoreArea('tofu', '豆腐', 14, x: 68, y: 72),
-  'icecream': StoreArea('icecream', 'アイスクリーム', 15, x: 30, y: 42),
-  'beer': StoreArea('beer', 'ビール', 16, x: 42, y: 42),
-  'sake': StoreArea('sake', '日本酒', 17, x: 56, y: 42),
-  'sweets': StoreArea('sweets', 'お菓子', 18, x: 70, y: 42),
-  'kitchen': StoreArea('kitchen', '台所用品', 19, x: 80, y: 42),
-  'garbage': StoreArea('garbage', 'ゴミ袋', 20, x: 88, y: 42),
-  'egg': StoreArea('egg', '卵', 21, x: 12, y: 58),
-  'bread': StoreArea('bread', 'パン', 22, x: 12, y: 48),
-  'self_checkout': StoreArea('self_checkout', 'セルフレジ', 23, x: 18, y: 18),
-  'cashier': StoreArea('cashier', 'レジ', 24, x: 45, y: 18),
+  'start': StoreArea('start', 'スタート', 0, x: 86.8, y: 6.5),
+  'local_vegetables': StoreArea('local_vegetables', '地場野菜', 1, x: 76.4, y: 10.8),
+  // 右壁を下→上にめぐる順：地場野菜(1) → 果物(2) → 野菜(3) → お魚(4)。
+  // 旧データは野菜(2)→果物(3)で物理配置と逆だったため入れ替え。
+  'fruits': StoreArea('fruits', '果物', 2, x: 85.5, y: 20.3),
+  'vegetables': StoreArea('vegetables', '野菜', 3, x: 84.8, y: 53.7),
+  'fish': StoreArea('fish', 'お魚', 4, x: 89.1, y: 92.8),
+  'meat': StoreArea('meat', 'お肉', 5, x: 50.5, y: 93.1),
+  'tempura': StoreArea('tempura', '天ぷら', 6, x: 10.8, y: 93.1),
+  'side_dish': StoreArea('side_dish', '惣菜', 7, x: 9.6, y: 79.7),
+  'dairy': StoreArea('dairy', '乳製品', 8, x: 25.1, y: 68.8),
+  'yogurt': StoreArea('yogurt', 'ヨーグルト', 9, x: 9.1, y: 65.6),
+  'frozen': StoreArea('frozen', '冷凍食品', 10, x: 34.4, y: 68.8),
+  'drink': StoreArea('drink', '飲料水', 11, x: 43.7, y: 68.8),
+  'miso': StoreArea('miso', '味噌汁', 12, x: 53.0, y: 68.8),
+  'instant': StoreArea('instant', '即席食品', 13, x: 62.3, y: 68.8),
+  'tofu': StoreArea('tofu', '豆腐', 14, x: 71.6, y: 68.8),
+  'icecream': StoreArea('icecream', 'アイスクリーム', 15, x: 25.1, y: 37.6),
+  'beer': StoreArea('beer', 'ビール', 16, x: 34.4, y: 37.6),
+  'sake': StoreArea('sake', '日本酒', 17, x: 43.7, y: 37.6),
+  'sweets': StoreArea('sweets', 'お菓子', 18, x: 53.0, y: 37.6),
+  'kitchen': StoreArea('kitchen', '台所用品', 19, x: 62.3, y: 37.6),
+  'garbage': StoreArea('garbage', 'ゴミ袋', 20, x: 71.6, y: 37.6),
+  'egg': StoreArea('egg', '卵', 21, x: 9.1, y: 58.1),
+  'bread': StoreArea('bread', 'パン', 22, x: 9.3, y: 35.6),
+  'self_checkout': StoreArea('self_checkout', 'セルフレジ', 23, x: 18.8, y: 11.8),
+  'cashier': StoreArea('cashier', 'レジ', 24, x: 47.7, y: 15.6),
 };
 
 /// 地産地消・食育クイズつきのサンプル8品目。

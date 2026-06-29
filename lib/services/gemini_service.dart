@@ -99,6 +99,43 @@ class GeminiService {
       return null;
     }
   }
+
+  /// 完了画面の「おうちのひとへ：きょうのまなび」用サマリを生成する。
+  ///
+  /// 今日クイズで学んだ商品（name / area / explanation）だけを根拠に、
+  /// 保護者向けの温かいふりかえり文（2〜3文）を作る。
+  /// ハルシネーション対策として、手書きの「正しい事実」(explanation) だけを渡す。
+  /// 失敗・不正・キー未設定・空リスト時は null を返し、画面側が固定文へフォールバックする。
+  static Future<String?> generateParentSummary(List<ShoppingItem> items) async {
+    if (items.isEmpty) return null;
+    try {
+      final resp = await http
+          .post(
+            _endpoint,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'mode': 'summary',
+              'items': [
+                for (final it in items)
+                  {
+                    'name': it.name,
+                    'area': it.area,
+                    // グラウンディング根拠（AIに事実を発明させない）。
+                    'explanation': it.explanation,
+                  }
+              ],
+            }),
+          )
+          .timeout(_timeout);
+      if (resp.statusCode != 200) return null;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final summary = data['summary'];
+      if (summary is! String || summary.trim().isEmpty) return null;
+      return summary.trim();
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 /// Gemini が生成したクイズ。フォールバック時は使わず、[ShoppingItem] の固定値を使う。

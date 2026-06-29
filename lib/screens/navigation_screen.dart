@@ -109,11 +109,18 @@ class _NavigationScreenState extends State<NavigationScreen> {
     );
     if (!mounted) return;
     if (ok == true) {
-      setState(() => _collected.add(bonusItem));
+      // 途中追加は何度も押せるが、ボーナスは同一 bonusItem なので二重加算しない。
+      // （無制限に add すると図鑑が「6 / 8」のように分母超過し、同じバッジが重複する）
+      final alreadyFound = _collected.contains(bonusItem);
+      if (!alreadyFound) {
+        setState(() => _collected.add(bonusItem));
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('リストにない商品も はっけん！＋1ポイント🛒'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(
+            alreadyFound ? 'もう はっけんずみだよ！🛒' : 'リストにない商品も はっけん！＋1ポイント🛒',
+          ),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -146,11 +153,50 @@ class _NavigationScreenState extends State<NavigationScreen> {
     return bearing;
   }
 
+  /// 現在地（origin）から次の売り場（target）への直線距離（0..100単位）を求める。
+  ///
+  /// ・origin / target の決め方は [_bearingToCurrentTarget] とまったく同じ。
+  ///   origin の売り場ID＝最初(_index==0)はスタート、それ以外は1つ前のミッションの売り場。
+  ///   target の売り場ID＝今回のミッションの売り場。
+  /// ・距離 = sqrt(dx*dx + dy*dy)（storeAreas の x=東/右, y=北/上, 0..100 をそのまま使う）。
+  /// ・座標が欠落していれば null。
+  /// ※ これは「距離の目安」であって経路計算ではない（最短/最適ルートではない）。
+  double? _distanceToCurrentTarget() {
+    final originId = _index == 0 ? 'start' : widget.items[_index - 1].areaId;
+    final targetId = widget.items[_index].areaId;
+    final origin = storeAreas[originId];
+    final target = storeAreas[targetId];
+    if (origin == null || target == null) return null;
+
+    final dx = target.x - origin.x; // 東(右)方向の差
+    final dy = target.y - origin.y; // 北(上)方向の差
+    if (dx == 0 && dy == 0) return null; // 同地点は方角も null なのでヒントも出さない（整合）
+    return sqrt(dx * dx + dy * dy);
+  }
+
+  /// 次の売り場までの距離（0..100単位）から、子ども向けのひらがなヒント文を作る。
+  /// 矢印の方角だけだと「まっすぐ棚にぶつかりそう」で不安になるのを、距離の目安で和らげる演出。
+  ///
+  /// バンド：
+  ///   ・距離 ≤ 15        → 「すぐ ちかく！」
+  ///   ・15 < 距離 ≤ 40   → 「ちょっと あるくよ」
+  ///   ・距離 > 40        → 「ずっと むこうだよ！」
+  /// 距離が null（座標欠落）のときはヒント無し（null）。
+  /// ※ 文言は「ちかく/むこう」のみ。「最短/最適ルート」などの経路を示す表現は使わない。
+  String? _distanceHintForCurrentTarget() {
+    final d = _distanceToCurrentTarget();
+    if (d == null) return null;
+    if (d <= 15) return 'すぐ ちかく！';
+    if (d <= 40) return 'ちょっと あるくよ';
+    return 'ずっと むこうだよ！';
+  }
+
   @override
   Widget build(BuildContext context) {
     final total = widget.items.length;
     final current = widget.items[_index];
     final targetBearing = _bearingToCurrentTarget();
+    final distanceHint = _distanceHintForCurrentTarget();
 
     return Scaffold(
       appBar: AppBar(
@@ -198,6 +244,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 key: ValueKey('compass-${current.id}'),
                 targetAreaName: current.area,
                 targetBearingDeg: targetBearing,
+                distanceHint: distanceHint,
                 onArrived: _onArrived,
               ),
             ),
