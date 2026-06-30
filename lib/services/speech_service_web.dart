@@ -1,0 +1,52 @@
+// Web専用実装。ネイティブ対応時は flutter_tts 等に差し替えること。
+//
+// ブラウザの Web Speech API（speechSynthesis）で日本語テキストを読み上げる。
+// 危険エリア接近時の「音声アラート」（企画書 4-◆安全性／危険箇所のポップアップ）に使う。
+// 権限要求は不要で、対応ブラウザならそのまま鳴る。非対応・例外時は無音で続行する。
+
+import 'dart:html' as html;
+
+class SpeechService {
+  /// iOS Safari は `speechSynthesis.speak()` を**ユーザー操作（タップ）起点**でしか
+  /// 鳴らせない。最初のタップ時にこれを呼び、無音の発話で音声を“解放”しておくと、
+  /// 後から（危険検知などプログラム起点で）読み上げても鳴るようになる。
+  /// 併せて voices の遅延ロードもトリガする。お約束画面のスタート等から呼ぶ。
+  static void unlock() {
+    try {
+      final synth = html.window.speechSynthesis;
+      if (synth == null) return;
+      synth.getVoices(); // voices のロードをトリガ
+      final warmup = html.SpeechSynthesisUtterance(' ')
+        ..volume = 0
+        ..lang = 'ja-JP';
+      synth.cancel();
+      synth.speak(warmup);
+    } catch (_) {}
+  }
+
+  /// [text] を日本語で読み上げる。絵文字・改行は読み上げ向けに整える。
+  static void speak(String text) {
+    try {
+      final synth = html.window.speechSynthesis;
+      if (synth == null) return;
+      final cleaned = text.replaceAll('⚠️', '').replaceAll('\n', ' ').trim();
+      final utterance = html.SpeechSynthesisUtterance(cleaned)
+        ..lang = 'ja-JP'
+        ..rate = 1.0
+        ..pitch = 1.0
+        ..volume = 1.0;
+      // 日本語の声があれば選ぶ（無ければ既定の声）。
+      for (final v in synth.getVoices()) {
+        if ((v.lang ?? '').toLowerCase().startsWith('ja')) {
+          utterance.voice = v;
+          break;
+        }
+      }
+      // 直前の読み上げが残っていれば止めてから話す（重なり防止）。
+      synth.cancel();
+      synth.speak(utterance);
+    } catch (_) {
+      // 非対応ブラウザなどでは無音で続行（デモを止めない）。
+    }
+  }
+}
