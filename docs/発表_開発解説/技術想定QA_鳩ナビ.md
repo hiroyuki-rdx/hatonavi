@@ -9,7 +9,7 @@
 
 ## ★ 即答の大原則（まずこれだけ覚える）
 
-1. **AIの仕事は2つだけ** … 「**巡回順の提案**」と「**食育クイズ生成**」。方角計算・現在地推定・進行制御・危険判定・スキャン・会計は**すべて端末内のローカル処理**。
+1. **AIの仕事は3つ** … 「**巡回順の提案**」「**食育クイズ生成**」「**保護者サマリ生成（きょうのまなび）**」。いずれも事実グラウンディング＋フォールバックで守る“検証・やり直し可能”な仕事。方角計算・距離計算・現在地推定・進行制御・危険判定・スキャン・会計は**すべて端末内のローカル処理**。
 2. **禁止ワードを言わない** … 「最短/最適ルート」「AIルート生成」は使わない。正しくは「**後戻りの少ない巡回順**」。会計連携先サービスは**将来構想・未接続**。
 3. **誤クイズは絶対に出さない** … 事実グラウンディング→生成抑制→多段検証→固定クイズへフォールバックの**4層防御**。
 4. **何があっても止まらない** … AI 8秒タイムアウト、センサー無しでも進行、カメラ無しでもスキップ、音声非対応でも無音続行。
@@ -24,6 +24,8 @@
 | 使用AIモデル | `gemini-2.5-flash` | `api/gemini.js` |
 | temperature（クイズ） | **0.3** | `api/gemini.js` |
 | temperature（巡回順・既定） | 0.7 | `api/gemini.js` |
+| temperature（保護者サマリ） | 0.4 | `api/gemini.js` |
+| AIの用途（mode） | order / quiz / **summary** の3つ | `gemini_service.dart` / `api/gemini.js` |
 | AI呼び出しタイムアウト | **8秒** | `gemini_service.dart` `_timeout` |
 | 巡回順“考え中”演出 | 最低1.2秒 | `shopping_list_screen.dart` |
 | 走行検知しきい値 | **4.0 m/s²**（重力除外の合成加速度） | `motion_service.dart` `_walkAlertThreshold` |
@@ -36,7 +38,7 @@
 | シール交換しきい値 | **5スタンプ=10ポイント** | `point_service.dart` `stampsToRedeem` / `stickerThreshold` |
 | 1クイズ正解で得るポイント | **1ポイント**（＝正解数が獲得ポイント） | `navigation_screen.dart` / `sticker_screen.dart` |
 | 商品データ | 8品（固定） | `models.dart` `sampleItems` |
-| 売り場マスタ | 25区画（pathIndex 0〜24・x,y座標） | `models.dart` `storeAreas` |
+| 売り場マスタ | 25区画（pathIndex 0〜24・x,y座標は実マップ比率で精緻化済み・小数） | `models.dart` `storeAreas` |
 | 難易度 | 3段階（未就学/小学生/高学年・既定=小学生） | `level_service.dart` `levels` / `defaultId` |
 
 ---
@@ -69,9 +71,9 @@
 **根拠：** `api/gemini.js`（`gemini-2.5-flash:generateContent`、`responseMimeType: application/json`）／エンドポイントは `/api/gemini`（`gemini_service.dart`）。
 
 ### Q2-2. AIはいつ・何回呼ぶ？（コスト抑制）
-**回答：**「呼ぶのは2か所だけ。買い物開始時に“巡回順”を1回、各商品の到着時に“クイズ”を1回。ナビ中に毎フレーム呼ぶようなことはしません。」
-**根拠：** 巡回順＝`shopping_list_screen.dart`（`GeminiService.suggestVisitOrder`）、クイズ＝`quiz_screen.dart`（`GeminiService.generateQuiz`）。
-**深掘り：** 方位・走行検知・進行・スキャンは全てローカルで API 不要。1回のおつかいの呼び出しは「**1＋商品数**」回に収まり、コストが予測可能です。
+**回答：**「呼ぶのは3か所だけ。買い物開始時に“巡回順”を1回、各商品の到着時に“クイズ”を1回、完了画面で“保護者サマリ”を1回。ナビ中に毎フレーム呼ぶようなことはしません。」
+**根拠：** 巡回順＝`shopping_list_screen.dart`（`GeminiService.suggestVisitOrder`）、クイズ＝`quiz_screen.dart`（`GeminiService.generateQuiz`）、保護者サマリ＝`sticker_screen.dart`（`GeminiService.generateParentSummary`）。
+**深掘り：** 方位・距離・走行検知・進行・スキャンは全てローカルで API 不要。1回のおつかいの呼び出しは「**巡回順1＋商品数＋サマリ1**」回に収まり、コストが予測可能です。
 
 ### Q2-3. temperature とプロンプト設計は？
 **回答：**「クイズは事実ベースなので temperature 0.3 に下げて創作の暴走を抑えます（巡回順は既定0.7）。プロンプトで“与えた事実だけを根拠に作れ／4択中ちょうど1つだけ正解／こわい・差別はNG”と縛っています。」
@@ -90,6 +92,10 @@
 ### Q2-6【追加】. Geminiが壊れたJSONや余計な文を返したら？
 **回答：**「二重で守ります。サーバー側で JSON 出力を強制し、パースに失敗したら 502 を返す。フロントは受け取った後に型・件数・重複・index・空文字を再検証し、少しでも崩れたら固定クイズに落とします。」
 **根拠：** サーバー＝`api/gemini.js`（`responseMimeType` 強制＋`JSON.parse` 失敗で502）／フロント＝`gemini_service.dart`（`generateQuiz` 内の検証）。
+
+### Q2-7. 完了画面の「保護者サマリ」もAI？嘘を書かない？
+**回答：**「AI生成です（`mode: summary`）。ただしクイズと同じ守り方で、子どもが今日学んだ商品の“正しい事実(`explanation`)”だけを根拠にし（グラウンディング）、temperature 0.4＋『学んだこと以外は書かない／断定・誇張しない／2〜3文』の指示で生成します。失敗・空・キー未設定・空リスト時は固定のまとめ文にフォールバックし、保護者カードを絶対に空にしません。」
+**根拠：** `gemini_service.dart`（`generateParentSummary`：空文字列なら null）／`api/gemini.js`（`summary` ブロック、temperature 0.4）／`sticker_screen.dart`（`_fallbackSummary`）。出力は `{summary:"本文"}`。
 
 ---
 
@@ -129,8 +135,8 @@
 ## 5. センサー / 方位
 
 ### Q5-1. 位置情報を使わずどうやって方角を出す？【重要】
-**回答：**「売り場ごとに固定した座標（x,y）を持っていて、“1つ前の売り場→次の売り場”の方向を `atan2` で計算し、端末の方位を引いて針の角度にしています。GPSや屋内測位は使いません。」
-**根拠：** 方位角計算＝`navigation_screen.dart`（座標差から `atan2(dx,dy)`）。針角度への変換＝`compass_screen.dart`。座標は `models.dart` の `storeAreas`（x: 左→右 0..100、y: 下→上 0..100）。
+**回答：**「売り場ごとに固定した座標（x,y）を持っていて、“1つ前の売り場→次の売り場”の方向を `atan2` で計算し、端末の方位を引いて針の角度にしています。同じ座標差から直線距離も出して『すぐ ちかく！／ちょっと あるくよ／ずっと むこうだよ！』の目安も表示します。GPSや屋内測位は使いません。」
+**根拠：** 方位角計算＝`navigation_screen.dart`（座標差から `atan2(dx,dy)`、距離は `sqrt(dx²+dy²)` をバンド分け）。針角度への変換・距離チップ表示＝`compass_screen.dart`。座標は `models.dart` の `storeAreas`（x: 左→右 0..100、y: 下→上 0..100）。※距離は経路ではなく目安。
 
 ### Q5-2. 方位センサーの取り方と「絶対/相対の非混在」は？
 **回答：**「ブラウザの DeviceOrientation を購読し、北=0の0〜360度に正規化します。Android は絶対方位イベントの alpha、iOS は `webkitCompassHeading`。**絶対方位が一度でも取れたら相対方位は捨てます**。混ぜると向きによって象限ごとにズレるからです。」
@@ -177,8 +183,8 @@
 **根拠：** `models.dart`（`sampleItems` 8品／`storeAreas` 25区画／`janCode` フィールド／差し替え前提コメント）。
 
 ### Q7-2. 25売り場の座標と巡回順の根拠は？
-**回答：**「店内マップを開発時にデジタル化し、25区画に“入口→レジの一方向スイープ順（pathIndex）”と近似座標を与えています。巡回順はこの並びが基準で、座標は次売場の方角計算に使います。」
-**根拠：** `models.dart` `storeAreas`（pathIndex 0〜24、x,y）。ローカル順は pathIndex 昇順（`shopping_list_screen.dart`）、方角は `navigation_screen.dart`。座標精緻化は今後の改善項目（`docs/引き継ぎ.md`）。
+**回答：**「店内マップを開発時にデジタル化し、25区画に“入口→レジの一方向スイープ順（pathIndex）”と座標を与えています。座標は実マップの比率に合わせて精緻化済み（小数）で、右壁は下→上に進むため果物→野菜の順に並べ替えています。巡回順はこの並びが基準で、座標は次売場の方角・距離計算に使います。」
+**根拠：** `models.dart` `storeAreas`（pathIndex 0〜24、x,y は小数で精緻化済み。同名2区画は到達しやすい側を代表座標に採用）。ローカル順は pathIndex 昇順（`shopping_list_screen.dart`）、方角・距離は `navigation_screen.dart`。
 
 ### Q7-3. 難易度3段階の中身は？
 **回答：**「未就学・小学生(1〜3年)・高学年(4〜6年)の3段階、既定は小学生。レベルごとに言葉づかいの指示文をAIに渡し、ひらがな量や漢字・問い方を変えます。高学年は常用漢字を使い“理由・仕組みを考えさせる問い方”に。どのレベルでも“事実外を足さない”制約は共通です。」
@@ -242,12 +248,12 @@
 **根拠：** `compass_service.dart`／`motion_service.dart` の冒頭コメント（差し替え方針）と公開API（`headingStream`/`requestPermission`）。
 
 ### Q10-5. コストは？
-**回答：**「1回のおつかいで“巡回順1回＋商品数ぶんのクイズ”だけ。ナビ中は呼びません。`gemini-2.5-flash` は安価で出力も短いJSON1問。予測可能で低コストです。フォールバックがあるので、コスト上限でAIをオフにしてもアプリは成立します。」
-**根拠：** 呼び出しは2か所のみ（`shopping_list_screen.dart`／`quiz_screen.dart`）、モデルは `api/gemini.js`。
+**回答：**「1回のおつかいで“巡回順1回＋商品数ぶんのクイズ＋完了時のサマリ1回”だけ。ナビ中は呼びません。`gemini-2.5-flash` は安価で出力も短いJSON。予測可能で低コストです。フォールバックがあるので、コスト上限でAIをオフにしてもアプリは成立します。」
+**根拠：** 呼び出しは3か所のみ（`shopping_list_screen.dart`／`quiz_screen.dart`／`sticker_screen.dart`）、モデルは `api/gemini.js`。
 
 ### Q10-6【追加】. 連打やリトライでポイントは二重加算されない？（冪等性）
-**回答：**「されません。獲得ポイントの累計加算は完了画面の初期化で1回だけ。スキャンは多重発火防止フラグで1回だけ検出。危険アラートも1回だけ出すようフラグ管理しています。」
-**根拠：** `sticker_screen.dart`（`initState` で `PointService.add` を1回）、`quiz_screen.dart`（`_handled` フラグ）、`navigation_screen.dart`（`_hazardShown` フラグ）。
+**回答：**「されません。獲得ポイントの累計加算は完了画面の初期化で1回だけ。スキャンは多重発火防止フラグで1回だけ検出。危険アラートも1回だけ。途中追加（🛒）も、同じボーナス商品は重複して図鑑に追加しないようガードしています（既発見なら『もう はっけんずみ』）。」
+**根拠：** `sticker_screen.dart`（`initState` で `PointService.add` を1回）、`quiz_screen.dart`（`_handled` フラグ）、`navigation_screen.dart`（`_hazardShown` フラグ＋途中追加の `_collected.contains(bonusItem)` 重複ガード）。
 
 ### Q10-7【追加】. 途中追加（リスト外スキャン）商品のクイズはどう事実保証する？
 **回答：**「リスト外商品は商品名が取れないので、商品名に依存しない“地産地消の汎用クイズ”＋固定の正しい事実を使います。JAN→商品DB連携が今回権限外という前提を踏まえた割り切りです。」

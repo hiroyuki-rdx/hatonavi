@@ -183,7 +183,7 @@ flowchart LR
   <div class="body">
     <div class="cards c3">
       <div class="card"><div class="ico">🧠</div><h3>AI 巡回順の提案</h3><p>選んだ商品を効率よく回れる「順番」をGeminiが提案（検証つき）。</p></div>
-      <div class="card"><div class="ico">❓</div><h3>AI 食育クイズ生成</h3><p>商品に合わせて出題。年齢3段階（未就学/小学生/高学年）で難易度調整。</p></div>
+      <div class="card"><div class="ico">❓</div><h3>AI クイズ＆保護者サマリ</h3><p>商品に合わせ食育クイズを生成（年齢3段階）。完了後は保護者向けに「きょうのまなび」をまとめる。</p></div>
       <div class="card"><div class="ico">🧭</div><h3>方位ナビ＋較正</h3><p>方位センサーで次の売り場の方角を提示。ワンタップで「むきをあわせる」。</p></div>
       <div class="card"><div class="ico">🛑</div><h3>走行ロック＋危険音声</h3><p>走り出しを検知して画面ロック。危険箇所では音声で注意。</p></div>
       <div class="card"><div class="ico">📷</div><h3>実カメラスキャン</h3><p>バーコードを読んで「みつけた！」を演出（購入処理ではない）。</p></div>
@@ -226,12 +226,12 @@ flowchart TB
   <div class="bar"></div>
   <div class="body">
     <div class="two">
-      <div class="panel ai"><h3>🧠 AI（Gemini）がやる ＝ 2つだけ</h3>
-        <ul><li>巡回順の提案（回る順番の並べ替え）</li><li>食育クイズの生成（正しい事実をもとに1問）</li></ul></div>
+      <div class="panel ai"><h3>🧠 AI（Gemini）がやる ＝ 3つ</h3>
+        <ul><li>巡回順の提案（回る順番の並べ替え）</li><li>食育クイズの生成（正しい事実をもとに1問）</li><li>保護者サマリ生成（完了画面「きょうのまなび」）</li></ul></div>
       <div class="panel local"><h3>⚙️ 端末のプログラムが確実にやる</h3>
-        <ul><li>画面の進行・遷移の管理</li><li>方角の計算・コンパス表示</li><li>走行検知・危険の通知（安全）</li><li>スキャン・ポイント計算・保存</li></ul></div>
+        <ul><li>画面の進行・遷移の管理</li><li>方角・距離の目安の計算・コンパス表示</li><li>走行検知・危険の通知（安全）</li><li>スキャン・ポイント計算・保存</li></ul></div>
     </div>
-    <div class="note"><b>方針：</b>間違えると危険なこと（方角・安全・進行・お金）はAIに任せない。AIには検証・やり直しがきく仕事だけを任せる。</div>
+    <div class="note"><b>方針：</b>間違えると危険なこと（方角・安全・進行・お金）はAIに任せない。AIの3用途はいずれも事実グラウンディング＋失敗時フォールバックで守る、検証・やり直しがきく仕事だけ。</div>
   </div>
   <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
 </section>
@@ -252,7 +252,7 @@ flowchart LR
   L3 -->|"検証OK"| OK["AI生成クイズを表示"]
     </div>
   </div>
-  <div class="note"><b>結果：</b>子どもには「検証を通ったAI生成クイズ」か「手書きの固定クイズ」しか表示されない＝<strong>誤クイズを見せない</strong>。</div>
+  <div class="note"><b>結果：</b>子どもには「検証を通ったAI生成クイズ」か「手書きの固定クイズ」しか表示されない＝<strong>誤クイズを見せない</strong>。完了画面の保護者サマリも同じ4層（グラウンディング／温度0.4／検証／固定文フォールバック）で守る。</div>
   <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
 </section>
 
@@ -418,7 +418,7 @@ flowchart TB
       <div class="card"><h3>③ AIは得意分野だけ＋検証</h3><p>危険なことは自前で確実に。AIは多層防御で安全に活用。</p></div>
       <div class="card"><h3>④ 秘密はサーバ・公開は自動</h3><p>APIキーは環境変数で秘匿、デプロイはCI/CDで自動化。</p></div>
     </div>
-    <div class="note" style="margin-top:16px;"><b>これから：</b>実店舗での親子デモ動画の撮影／方位ナビのマップ基準化／「きょうのまなび」保護者サマリ。</div>
+    <div class="note" style="margin-top:16px;"><b>これから：</b>実店舗での親子デモ動画の撮影／方位ナビのマップ基準化／正誤履歴による適応難易度。</div>
   </div>
   <div class="brandfoot"><b>鳩ナビ</b> おつかいクエスト</div>
 </section>
