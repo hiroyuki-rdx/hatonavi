@@ -8,11 +8,7 @@ class QuizLevel {
   final int id;
   final String label;
   final String hint;
-  const QuizLevel({
-    required this.id,
-    required this.label,
-    required this.hint,
-  });
+  const QuizLevel({required this.id, required this.label, required this.hint});
 }
 
 /// クイズ難易度レベルを端末ローカルに永続保存するサービス。
@@ -33,17 +29,24 @@ class LevelService {
     QuizLevel(
       id: 1,
       label: '未就学（〜6さい）',
-      hint: 'とてもやさしく。ぜんぶ ひらがな。みじかい文。選択肢は3〜4語で、正解とのちがいがはっきりわかるように。',
+      hint:
+          '未就学（〜6歳）向け。文は全部ひらがなで短く。むずかしい言葉は使わない。'
+          '選択肢は3〜4語で、正解とのちがいがはっきり分かるように。やさしく、こわくない言葉だけ。'
+          '「正しい事実」に書かれていないことは足さない。',
     ),
     QuizLevel(
       id: 2,
       label: '小学生（1〜3年）',
-      hint: 'やさしい日本語。小学校 低〜中学年向け。すなおな4択。',
+      hint:
+          '小学校 低〜中学年（1〜3年）向け。やさしい日本語。漢字は習う範囲を少しだけ使い、'
+          'むずかしい漢字はひらがなにする。すなおな4択で、理由が分かるやさしい言い回し。'
+          '「正しい事実」に書かれていないことは足さない。',
     ),
     QuizLevel(
       id: 3,
       label: '高学年（4〜6年）',
-      hint: '小学校 高学年（4〜6年）向け。ひらがなだけにせず、高学年で習う常用漢字を'
+      hint:
+          '小学校 高学年（4〜6年）向け。ひらがなだけにせず、高学年で習う常用漢字を'
           'ふつうに使う（例：新鮮・鮮度・輸送・距離・生産者・地産地消・旬・流通・産地）。'
           'ふりがなは付けない。幼い言い回し（「〜だぴ」調の甘い説明や過度なひらがな）は避け、'
           '理由や仕組みを考えさせる問い方にする。語彙・文はやや高め・説明的でよい。'
@@ -67,8 +70,9 @@ class LevelService {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getInt(_key);
     // 用意したレベルに無い値は既定値へ丸める。
-    final id =
-        (saved != null && levels.any((l) => l.id == saved)) ? saved : defaultId;
+    final id = (saved != null && levels.any((l) => l.id == saved))
+        ? saved
+        : defaultId;
     currentId = id;
     return id;
   }

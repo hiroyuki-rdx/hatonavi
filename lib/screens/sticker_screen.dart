@@ -6,9 +6,10 @@ import '../services/gemini_service.dart';
 import 'home_screen.dart';
 import 'point_screen.dart';
 
-/// 企画書「③ リアル店舗連動『おてつだい達成シール』」を再現する完了画面。
-/// お会計をうながす演出 → シール引換券の表示 → 獲得バッジ（ご当地はとっぴー図鑑）の確認、
-/// という一連の体験をまとめている。
+/// おつかい完了画面。
+/// お会計をうながす演出 → 今回／累計ポイントの表示 → 獲得バッジ（ご当地はとっぴー図鑑）
+/// → 保護者向け「きょうのまなび」、という一連の体験をまとめている。
+/// （旧「シール引換券」はポイント表示に置き換え。シール交換はポイント画面に残す）
 class StickerScreen extends StatefulWidget {
   final int totalItems;
   final List<ShoppingItem> collected;
@@ -31,6 +32,9 @@ class StickerScreen extends StatefulWidget {
 class _StickerScreenState extends State<StickerScreen> {
   bool _processing = true;
 
+  /// 今回ぶんを加算した後の累計ポイント（読み込み完了までは null）。
+  int? _totalPoints;
+
   /// 「おうちのひとへ きょうのまなび」サマリの状態。
   /// 取得中は _summaryLoading=true でローディング表示、完了で文章を表示する。
   bool _summaryLoading = true;
@@ -46,12 +50,20 @@ class _StickerScreenState extends State<StickerScreen> {
   @override
   void initState() {
     super.initState();
-    // 今回獲得ポイントを累計に一度だけ加算保存する。
-    PointService.add(widget.earnedPoints);
+    // 今回獲得ポイントを累計に一度だけ加算し、加算後の累計を読み込む。
+    _applyPointsAndLoadTotal();
     Future.delayed(const Duration(milliseconds: 1300), () {
       if (mounted) setState(() => _processing = false);
     });
     _loadParentSummary();
+  }
+
+  /// 今回ぶんのポイントを一度だけ累計に加算し、加算後の累計を読み込んで表示に反映する。
+  Future<void> _applyPointsAndLoadTotal() async {
+    await PointService.add(widget.earnedPoints);
+    final total = await PointService.loadTotal();
+    if (!mounted) return;
+    setState(() => _totalPoints = total);
   }
 
   /// 今日クイズで学んだ商品リスト（widget.collected）から保護者向けサマリを取得する。
@@ -125,7 +137,10 @@ class _StickerScreenState extends State<StickerScreen> {
             style: TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 24),
-          const _StickerTicket(),
+          _PointsResultCard(
+            earnedPoints: widget.earnedPoints,
+            totalPoints: _totalPoints,
+          ),
           const SizedBox(height: 28),
           Container(
             width: double.infinity,
@@ -184,12 +199,18 @@ class _StickerScreenState extends State<StickerScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(item.badgeEmoji, style: const TextStyle(fontSize: 26)),
+                          Text(
+                            item.badgeEmoji,
+                            style: const TextStyle(fontSize: 26),
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             item.badgeName,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -202,7 +223,11 @@ class _StickerScreenState extends State<StickerScreen> {
                     child: Text(
                       'クイズに正解するとバッジが増えるよ！\n次はチャレンジしてみよう。',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textDark, fontSize: 12, height: 1.5),
+                      style: TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
                     ),
                   ),
               ],
@@ -218,9 +243,7 @@ class _StickerScreenState extends State<StickerScreen> {
             width: double.infinity,
             child: OutlinedButton(
               onPressed: _showPoints,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: Colors.white,
-              ),
+              style: OutlinedButton.styleFrom(backgroundColor: Colors.white),
               child: const Text('ポイントをみる'),
             ),
           ),
@@ -252,135 +275,96 @@ class _PayingView extends StatelessWidget {
   }
 }
 
-/// サービスカウンターで提示する「シール引換券」を模したチケットUI。
-class _StickerTicket extends StatelessWidget {
-  const _StickerTicket();
+/// 完了画面で「今回の獲得ポイント」と「累計ポイント」を見せるカード。
+/// （旧「シール引換券」の置き換え。シール交換はポイント画面に残している）
+class _PointsResultCard extends StatelessWidget {
+  /// 今回のおつかいで獲得したポイント。
+  final int earnedPoints;
+
+  /// 加算後の累計ポイント。読み込み中は null。
+  final int? totalPoints;
+
+  const _PointsResultCard({required this.earnedPoints, this.totalPoints});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-            child: Column(
+          const Text('🎁', style: TextStyle(fontSize: 30)),
+          const SizedBox(height: 4),
+          const Text(
+            'こんかいの ポイント',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '$earnedPoints',
+                style: const TextStyle(
+                  fontSize: 56,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.accentOrange,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                'P',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.accentOrange,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppColors.cardBeige,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('🎟️', style: TextStyle(fontSize: 30)),
-                const SizedBox(height: 6),
+                const Text('⭐', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
                 const Text(
-                  'シール引換券',
+                  'ためた ポイント',
                   style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  totalPoints == null ? '… P' : '$totalPoints P',
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: AppColors.primaryGreenDark,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '限定「はとっぴーおてつだい達成シール」と交換',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: AppColors.textDark.withOpacity(0.6)),
-                ),
-              ],
-            ),
-          ),
-          const _DashedDivider(),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
-              children: [
-                const _FakeQrCode(),
-                const SizedBox(height: 10),
-                Text(
-                  'サービスカウンターで\n店員さんにこの画面を見せてね！',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textDark.withOpacity(0.7),
-                    height: 1.5,
-                  ),
-                ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DashedDivider extends StatelessWidget {
-  const _DashedDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 1,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final dashCount = (constraints.maxWidth / 10).floor();
-          return Row(
-            children: List.generate(dashCount, (index) {
-              return Expanded(
-                child: Container(
-                  height: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  color: index.isEven ? Colors.black26 : Colors.transparent,
-                ),
-              );
-            }),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// 装飾用の疑似QRコード（実際には読み取れないデザイン要素）。
-class _FakeQrCode extends StatelessWidget {
-  const _FakeQrCode();
-
-  @override
-  Widget build(BuildContext context) {
-    const gridSize = 7;
-    return Container(
-      width: 120,
-      height: 120,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: gridSize,
-        ),
-        itemCount: gridSize * gridSize,
-        itemBuilder: (context, index) {
-          final row = index ~/ gridSize;
-          final col = index % gridSize;
-          final isCorner = (row < 2 && col < 2) ||
-              (row < 2 && col >= gridSize - 2) ||
-              (row >= gridSize - 2 && col < 2);
-          final filled = isCorner || (row * 3 + col * 7) % 5 == 0;
-          return Container(
-            margin: const EdgeInsets.all(1),
-            color: filled ? AppColors.primaryGreenDark : Colors.transparent,
-          );
-        },
       ),
     );
   }
