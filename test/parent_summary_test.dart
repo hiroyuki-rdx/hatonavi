@@ -8,8 +8,9 @@ import 'package:hatopro_01/models.dart';
 import 'package:hatopro_01/screens/sticker_screen.dart';
 
 void main() {
-  testWidgets('完了画面に保護者サマリカードが出る／AI失敗時はフォールバック文で埋まる',
-      (WidgetTester tester) async {
+  testWidgets('完了画面に保護者サマリカードが出る／AI失敗時はフォールバック文で埋まる', (
+    WidgetTester tester,
+  ) async {
     // ポイント永続化(shared_preferences)をテスト用にモック。
     SharedPreferences.setMockInitialValues({});
 
@@ -33,8 +34,8 @@ void main() {
     expect(find.text('おうちのひとへ きょうのまなび'), findsOneWidget);
     // 「AIがまとめました」のラベルが出ている。
     expect(find.text('AIが きょうの まなびを まとめました'), findsOneWidget);
-    // 本文（AI失敗時のフォールバック）が空でなく、食育の文言を含む。
-    expect(find.textContaining('しょくいく'), findsWidgets);
+    // 本文（AI失敗時のフォールバック）が空でなく、食育の文言を含む（大人向けの普通の日本語）。
+    expect(find.textContaining('食育'), findsWidgets);
     // ローディングのスピナーは消えている（取得が完了している）。
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });

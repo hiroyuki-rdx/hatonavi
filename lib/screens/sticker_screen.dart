@@ -44,8 +44,8 @@ class _StickerScreenState extends State<StickerScreen> {
   /// 必ず表示する固定フォールバック文（温かい日本語2文）。
   /// これによりAIが落ちても保護者向けカードを絶対に空にしない＝デモを止めない。
   static const String _fallbackSummary =
-      'きょうは ちさんちしょうや しょくいくについて たくさん まなびました。'
-      'おうちでも きょう なにを まなんだか はなしてみてくださいね。';
+      '本日は、地産地消や食育について楽しく学びました。'
+      'ご家庭でも、今日どんなことを学んだか話してみてくださいね。';
 
   @override
   void initState() {
